@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import static net.osmand.plus.OsmandSettings.REC_DIRECTORY;
+
 public class SavingTrackHelper extends SQLiteOpenHelper {
 	
 	public final static String DATABASE_NAME = "tracks"; //$NON-NLS-1$
@@ -186,7 +188,25 @@ public class SavingTrackHelper extends SQLiteOpenHelper {
 
 		return false;
 	}
-	
+
+	private File createTargetDirName(File dir, WptPt pt) {
+		File targetDir = dir;
+		Integer track_storage_directory = ctx.getSettings().TRACK_STORAGE_DIRECTORY.get();
+		if (track_storage_directory != OsmandSettings.REC_DIRECTORY) {
+			SimpleDateFormat dateDirFormat = new SimpleDateFormat("yyyy-MM");
+			if (track_storage_directory == OsmandSettings.DAILY_DIRECTORY) {
+				dateDirFormat = new SimpleDateFormat("yyyy-MM-dd");
+			}
+			String dateDirName = dateDirFormat.format(new Date(pt.time));
+			File dateDir = new File(dir, dateDirName);
+			dateDir.mkdirs();
+			if (dateDir.exists()) {
+				targetDir = dateDir;
+			}
+		}
+		return  targetDir;
+	}
+
 	/**
 	 * @return warnings, filenames
 	 */
@@ -205,8 +225,12 @@ public class SavingTrackHelper extends SQLiteOpenHelper {
 					if (!data.get(f).isEmpty()) {
 						WptPt pt = data.get(f).findPointToShow();
 						String fileName = f + "_" + new SimpleDateFormat("HH-mm_EEE", Locale.US).format(new Date(pt.time)); //$NON-NLS-1$
-						if (ctx.getSettings().STORE_TRACKS_IN_MONTHLY_DIRECTORIES.get()) {
+						Integer track_storage_directory = ctx.getSettings().TRACK_STORAGE_DIRECTORY.get();
+						if (track_storage_directory != OsmandSettings.REC_DIRECTORY) {
 							SimpleDateFormat dateDirFormat = new SimpleDateFormat("yyyy-MM");
+							if (track_storage_directory == OsmandSettings.DAILY_DIRECTORY) {
+								dateDirFormat = new SimpleDateFormat("yyyy-MM-dd");
+							}
 							String dateDirName = dateDirFormat.format(new Date(pt.time));
 							File dateDir = new File(dir, dateDirName);
 							dateDir.mkdirs();

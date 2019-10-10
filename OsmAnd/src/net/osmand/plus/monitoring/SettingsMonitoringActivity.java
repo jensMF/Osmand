@@ -132,13 +132,6 @@ public class SettingsMonitoringActivity extends SettingsBaseActivity {
 		cat.addPreference(createListPreference(settings.TRACK_STORAGE_DIRECTORY, names, intValues,
 				R.string.track_storage_directory, R.string.track_storage_directory_descrp));
 
-
-		/*
-		cat.addPreference(createCheckBoxPreference(settings.STORE_TRACKS_IN_MONTHLY_DIRECTORIES, R.string.store_tracks_in_monthly_directories,
-				R.string.store_tracks_in_monthly_directories_descrp));
-		cat.addPreference(createCheckBoxPreference(settings.STORE_TRACKS_IN_DAILY_DIRECTORIES, R.string.store_tracks_in_daily_directories,
-				R.string.store_tracks_in_daily_directories_descrp));
-		*/
 	}
 
 

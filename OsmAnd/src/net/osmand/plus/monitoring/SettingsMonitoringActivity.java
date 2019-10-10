@@ -131,7 +131,6 @@ public class SettingsMonitoringActivity extends SettingsBaseActivity {
 		names[2] = getString(R.string.store_tracks_in_daily_directories);
 		cat.addPreference(createListPreference(settings.TRACK_STORAGE_DIRECTORY, names, intValues,
 				R.string.track_storage_directory, R.string.track_storage_directory_descrp));
-
 	}
 
 

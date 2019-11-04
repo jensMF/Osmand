@@ -673,7 +673,13 @@ public class ImportHelper {
 	private String saveImport(final GPXFile gpxFile, String fileName, final boolean useImportDir) {
 		final String warning;
 
-		if (gpxFile.isEmpty() || fileName == null) {
+		final WptPt pt = gpxFile.findPointToShow();
+
+		if(fileName == null) {
+			fileName = new SimpleDateFormat("yyyy-MM-dd_HH-mm_EEE", Locale.US).format(new Date(pt.time));
+		}
+
+		if (gpxFile.isEmpty()) {
 			warning = app.getString(R.string.error_reading_gpx);
 		} else {
 			final File importDir;
@@ -685,7 +691,6 @@ public class ImportHelper {
 			//noinspection ResultOfMethodCallIgnored
 			importDir.mkdirs();
 			if (importDir.exists() && importDir.isDirectory() && importDir.canWrite()) {
-				final WptPt pt = gpxFile.findPointToShow();
 				Integer track_storage_directory = app.getSettings().TRACK_STORAGE_DIRECTORY.get();
 				if (track_storage_directory != OsmandSettings.REC_DIRECTORY) {
 					SimpleDateFormat monthDirFormat = new SimpleDateFormat("yyyy-MM");

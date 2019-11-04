@@ -473,7 +473,7 @@ public class OpeningHoursParserTest {
 
 			hours = parseOpenedHours("Mo-Sa 08:30-17:00; Th off");
 			System.out.println(hours);
-			testInfo("17.01.2018 20:00", hours, "Will open on 08:30 Fri.");
+			testInfo("17.01.2018 20:00", hours, "Will open on 08:30 Fr.");
 			testInfo("18.01.2018 05:00", hours, "Will open tomorrow at 08:30");
 			testInfo("20.01.2018 05:00", hours, "Open from 08:30");
 			testInfo("21.01.2018 05:00", hours, "Will open tomorrow at 08:30");
@@ -536,7 +536,7 @@ public class OpeningHoursParserTest {
 			hours = parseOpenedHours("Mo-Fr 08:00-12:00, Mo,Tu,Th 15:00-17:00; PH off");
 			System.out.println(hours);
 			testOpened("09.08.2019 15:00", hours, false);
-			testInfo("09.08.2019 15:00", hours, "Will open on 08:00 Mon.");
+			testInfo("09.08.2019 15:00", hours, "Will open on 08:00 Mo.");
 
 			hours = parseOpenedHours(
 					"Mo-Fr 10:00-21:00; Sa 12:00-23:00; PH \"Wird auf der Homepage bekannt gegeben.\"");

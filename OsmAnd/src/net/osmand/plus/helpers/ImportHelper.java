@@ -180,11 +180,9 @@ public class ImportHelper {
 			} else {
 				name = contentUri.getLastPathSegment();
 			}
-			log.debug("1. FileName: " + name);
 		} else {
 			name = null;
 		}
-		log.debug("2. FileName: " + name);
 		if (returnCursor != null && !returnCursor.isClosed()) {
 			returnCursor.close();
 		}

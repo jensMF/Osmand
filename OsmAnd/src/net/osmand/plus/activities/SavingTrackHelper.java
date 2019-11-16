@@ -219,9 +219,10 @@ public class SavingTrackHelper extends SQLiteOpenHelper {
 								SimpleDateFormat dayDirFormat = new SimpleDateFormat("yyyy-MM-dd");
 								dateDirName = dateDirName + File.separator + dayDirFormat.format(new Date(pt.time));
 							}
-							targetDir = new File(dir, dateDirName);
-							targetDir.mkdirs();
-							if (targetDir.exists()) {
+							File dateDir = new File(dir, dateDirName);
+							dateDir.mkdirs();
+							if (dateDir.exists()) {
+								targetDir = dateDir;
 								directories.add(dateDirName);
 							}
 						}

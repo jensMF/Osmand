@@ -13,6 +13,7 @@ import android.net.NetworkInfo;
 import android.os.Build;
 import android.os.Environment;
 import android.support.annotation.DrawableRes;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.StringRes;
 import android.support.v4.util.Pair;
@@ -149,7 +150,6 @@ public class OsmandSettings {
 
 	/// Settings variables
 	private final OsmandApplication ctx;
-	private PreferencesDataStore dataStore;
 	private SettingsAPI settingsAPI;
 	private Object defaultProfilePreferences;
 	private Object globalPreferences;
@@ -166,7 +166,6 @@ public class OsmandSettings {
 	protected OsmandSettings(OsmandApplication clientContext, SettingsAPI settinsAPI) {
 		ctx = clientContext;
 		this.settingsAPI = settinsAPI;
-		dataStore = new PreferencesDataStore();
 		initPrefs();
 	}
 
@@ -174,7 +173,6 @@ public class OsmandSettings {
 		ctx = clientContext;
 		this.settingsAPI = settinsAPI;
 		CUSTOM_SHARED_PREFERENCES_NAME = CUSTOM_SHARED_PREFERENCES_PREFIX + sharedPreferencesName;
-		dataStore = new PreferencesDataStore();
 		initPrefs();
 		setCustomized();
 	}
@@ -210,8 +208,8 @@ public class OsmandSettings {
 		return settingsAPI;
 	}
 
-	public PreferencesDataStore getDataStore() {
-		return dataStore;
+	public PreferencesDataStore getDataStore(@Nullable ApplicationMode appMode) {
+		return new PreferencesDataStore(appMode != null ? appMode : APPLICATION_MODE.get());
 	}
 
 	public static String getSharedPreferencesName(ApplicationMode mode) {
@@ -1253,7 +1251,7 @@ public class OsmandSettings {
 	public final OsmandPreference<DrivingRegion> DRIVING_REGION = new EnumIntPreference<DrivingRegion>(
 			"default_driving_region", DrivingRegion.EUROPE_ASIA, DrivingRegion.values()) {
 		protected boolean setValue(Object prefs, DrivingRegion val) {
-			if (val != null && !METRIC_SYSTEM_CHANGED_MANUALLY.get()) {
+			if (val != null) {
 				METRIC_SYSTEM.set(val.defMetrics);
 			}
 			return super.setValue(prefs, val);
@@ -1282,8 +1280,6 @@ public class OsmandSettings {
 		}
 
 	}.makeProfile().makeGeneral().cache();
-
-	public final CommonPreference<Boolean> METRIC_SYSTEM_CHANGED_MANUALLY = new BooleanPreference("metric_system_changed_manually", false).makeGlobal();
 
 	// this value string is synchronized with settings_pref.xml preference name
 	// cache of metrics constants as they are used very often
@@ -1370,7 +1366,7 @@ public class OsmandSettings {
 
 	// this value string is synchronized with settings_pref.xml preference name
 	public final OsmandPreference<Boolean> USE_TRACKBALL_FOR_MOVEMENTS =
-			new BooleanPreference("use_trackball_for_movements", true).makeGlobal();
+			new BooleanPreference("use_trackball_for_movements", true).makeProfile().makeGeneral();
 
 	// this value string is synchronized with settings_pref.xml preference name
 	public final OsmandPreference<Boolean> ACCESSIBILITY_SMART_AUTOANNOUNCE =
@@ -1401,7 +1397,8 @@ public class OsmandSettings {
 	public final OsmandPreference<Boolean> USE_KALMAN_FILTER_FOR_COMPASS = new BooleanPreference("use_kalman_filter_compass", true).makeProfile().makeGeneral().cache();
 
 	public final OsmandPreference<Boolean> DO_NOT_SHOW_STARTUP_MESSAGES = new BooleanPreference("do_not_show_startup_messages", false).makeGlobal().cache();
-	public final OsmandPreference<Boolean> DO_NOT_USE_ANIMATIONS = new BooleanPreference("do_not_use_animations", false).makeProfile().cache();
+	public final OsmandPreference<Boolean> SHOW_DOWNLOAD_MAP_DIALOG = new BooleanPreference("show_download_map_dialog", true).makeGlobal().cache();
+	public final OsmandPreference<Boolean> DO_NOT_USE_ANIMATIONS = new BooleanPreference("do_not_use_animations", false).makeProfile().makeGeneral().cache();
 
 	public final OsmandPreference<Boolean> SEND_ANONYMOUS_MAP_DOWNLOADS_DATA = new BooleanPreference("send_anonymous_map_downloads_data", false).makeGlobal().cache();
 	public final OsmandPreference<Boolean> SEND_ANONYMOUS_APP_USAGE_DATA = new BooleanPreference("send_anonymous_app_usage_data", false).makeGlobal().cache();
@@ -3486,38 +3483,44 @@ public class OsmandSettings {
 
 	public class PreferencesDataStore extends PreferenceDataStore {
 
+		private ApplicationMode appMode;
+
+		public PreferencesDataStore(@NonNull ApplicationMode appMode) {
+			this.appMode = appMode;
+		}
+
 		@Override
 		public void putString(String key, @Nullable String value) {
-			setPreference(key, value);
+			setPreference(key, value, appMode);
 		}
 
 		@Override
 		public void putStringSet(String key, @Nullable Set<String> values) {
-			setPreference(key, values);
+			setPreference(key, values, appMode);
 		}
 
 		@Override
 		public void putInt(String key, int value) {
-			setPreference(key, value);
+			setPreference(key, value, appMode);
 		}
 
 		@Override
 		public void putLong(String key, long value) {
-			setPreference(key, value);
+			setPreference(key, value, appMode);
 		}
 
 		@Override
 		public void putFloat(String key, float value) {
-			setPreference(key, value);
+			setPreference(key, value, appMode);
 		}
 
 		@Override
 		public void putBoolean(String key, boolean value) {
-			setPreference(key, value);
+			setPreference(key, value, appMode);
 		}
 
 		public void putValue(String key, Object value) {
-			setPreference(key, value);
+			setPreference(key, value, appMode);
 		}
 
 		@Nullable
@@ -3525,9 +3528,9 @@ public class OsmandSettings {
 		public String getString(String key, @Nullable String defValue) {
 			OsmandPreference preference = getPreference(key);
 			if (preference instanceof StringPreference) {
-				return ((StringPreference) preference).get();
+				return ((StringPreference) preference).getModeValue(appMode);
 			} else {
-				Object value = preference.get();
+				Object value = preference.getModeValue(appMode);
 				if (value != null) {
 					return value.toString();
 				}
@@ -3545,7 +3548,7 @@ public class OsmandSettings {
 		public int getInt(String key, int defValue) {
 			OsmandPreference preference = getPreference(key);
 			if (preference instanceof IntPreference) {
-				return ((IntPreference) preference).get();
+				return ((IntPreference) preference).getModeValue(appMode);
 			}
 			return defValue;
 		}
@@ -3554,7 +3557,7 @@ public class OsmandSettings {
 		public long getLong(String key, long defValue) {
 			OsmandPreference preference = getPreference(key);
 			if (preference instanceof LongPreference) {
-				return ((LongPreference) preference).get();
+				return ((LongPreference) preference).getModeValue(appMode);
 			}
 			return defValue;
 		}
@@ -3563,7 +3566,7 @@ public class OsmandSettings {
 		public float getFloat(String key, float defValue) {
 			OsmandPreference preference = getPreference(key);
 			if (preference instanceof FloatPreference) {
-				return ((FloatPreference) preference).get();
+				return ((FloatPreference) preference).getModeValue(appMode);
 			}
 			return defValue;
 		}
@@ -3572,7 +3575,7 @@ public class OsmandSettings {
 		public boolean getBoolean(String key, boolean defValue) {
 			OsmandPreference preference = getPreference(key);
 			if (preference instanceof BooleanPreference) {
-				return ((BooleanPreference) preference).get();
+				return ((BooleanPreference) preference).getModeValue(appMode);
 			}
 			return defValue;
 		}
@@ -3581,7 +3584,7 @@ public class OsmandSettings {
 		public Object getValue(String key, Object defValue) {
 			OsmandPreference preference = getPreference(key);
 			if (preference != null) {
-				return preference.get();
+				return preference.getModeValue(appMode);
 			}
 			return defValue;
 		}

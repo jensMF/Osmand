@@ -3,6 +3,7 @@ package net.osmand.plus.settings;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.support.v4.app.FragmentManager;
@@ -28,6 +29,7 @@ import net.osmand.plus.OsmandSettings;
 import net.osmand.plus.OsmandSettings.CommonPreference;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
+import net.osmand.plus.Version;
 import net.osmand.plus.base.MapViewTrackingUtilities;
 import net.osmand.plus.helpers.FontCache;
 import net.osmand.plus.settings.bottomsheets.ChangeGeneralProfilesPrefBottomSheet;
@@ -61,6 +63,7 @@ public class GeneralProfileSettingsFragment extends BaseSettingsFragment impleme
 		setupMagneticFieldSensorPref();
 		setupMapEmptyStateAllowedPref();
 		setupExternalInputDevicePref();
+		setupTrackballForMovementsPref();
 	}
 
 	@Override
@@ -277,6 +280,20 @@ public class GeneralProfileSettingsFragment extends BaseSettingsFragment impleme
 		);
 	}
 
+	private void setupTrackballForMovementsPref() {
+		SwitchPreferenceEx mapEmptyStateAllowedPref = (SwitchPreferenceEx) findPreference(settings.USE_TRACKBALL_FOR_MOVEMENTS.getId());
+		mapEmptyStateAllowedPref.setTitle(getString(R.string.use_trackball));
+		mapEmptyStateAllowedPref.setDescription(getString(R.string.use_trackball_descr));
+
+		boolean visible = false;
+		if (!Version.isBlackberry(app)) {
+			int nav = getResources().getConfiguration().navigation;
+			visible = nav == Configuration.NAVIGATION_DPAD || nav == Configuration.NAVIGATION_TRACKBALL ||
+					nav == Configuration.NAVIGATION_WHEEL || nav == Configuration.NAVIGATION_UNDEFINED;
+		}
+		mapEmptyStateAllowedPref.setVisible(visible);
+	}
+
 	private void showDrivingRegionDialog() {
 		Context themedContext = UiUtilities.getThemedContext(getActivity(), isNightMode());
 		AlertDialog.Builder b = new AlertDialog.Builder(themedContext);
@@ -362,7 +379,8 @@ public class GeneralProfileSettingsFragment extends BaseSettingsFragment impleme
 		if (pref instanceof CommonPreference && !((CommonPreference) pref).hasDefaultValueForMode(getSelectedAppMode())) {
 			FragmentManager fragmentManager = getFragmentManager();
 			if (fragmentManager != null && newValue instanceof Serializable) {
-				ChangeGeneralProfilesPrefBottomSheet.showInstance(fragmentManager, prefId, (Serializable) newValue, this, false);
+				ChangeGeneralProfilesPrefBottomSheet.showInstance(fragmentManager, prefId,
+						(Serializable) newValue, this, false, getSelectedAppMode());
 			}
 			return false;
 		}
@@ -384,5 +402,14 @@ public class GeneralProfileSettingsFragment extends BaseSettingsFragment impleme
 				preference.setIcon(getCenterPositionOnMapIcon());
 			}
 		}
+	}
+
+	@Override
+	public void updateSetting(String prefId) {
+		if (settings.OSMAND_THEME.getId().equals(prefId)) {
+			recreate();
+			return;
+		}
+		super.updateSetting(prefId);
 	}
 }

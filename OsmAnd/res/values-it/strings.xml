@@ -2814,8 +2814,8 @@ Rappresenta l\'area: %1$s x %2$s</string>
 \n</string>
     <string name="commiting_way">Sottoponi la via…</string>
     <string name="increase_search_radius_to">Aumenta il raggio di ricerca a %1$s</string>
-    <string name="send_search_query_description">Invieremo la tua ricerca \"%1$s\" oltre alla tua localizzazione.
-	    \nNon raccogliamo informazioni personali, i dati delle ricerche sono usati per migliorare l\'algoritmo di ricerca</string>
+    <string name="send_search_query_description">Invieremo la tua ricerca, assieme alla tua localizzazione a: \"%1$s\". 
+\nNon raccogliamo informazioni personali, i dati delle ricerche sono usati per migliorare l\'algoritmo di ricerca.</string>
     <string name="send_search_query">Inviare i dati delle ricerche?</string>
     <string name="shared_string_world">Mondo</string>
     <string name="point_deleted">Punto %1$s eliminato</string>
@@ -3134,7 +3134,6 @@ Rappresenta l\'area: %1$s x %2$s</string>
     <string name="base_profile_descr_aircraft">Aereo, volo a vela</string>
     <string name="routing_profile_geocoding">Geocodifica</string>
     <string name="routing_profile_broutrer">BRouter (offline)</string>
-    <string name="default_speed_dialog_msg">Utilizzata per calcolare l\'ora di arrivo prevista</string>
     <string name="osmand_default_routing">Calcolo percorso OsmAnd</string>
     <string name="custom_routing">Profilo personalizzato di calcolo del percorso</string>
     <string name="routing_attr_piste_type_downhill_name">Sci alpino/sci downhill</string>
@@ -3371,4 +3370,21 @@ Rappresenta l\'area: %1$s x %2$s</string>
     <string name="quick_action_show_hide_hillshade">Mostra/nascondi l\'ombreggiatura dei rilievi</string>
     <string name="tts_initialization_error">Impossibile avviare il motore dal-testo-alla-voce</string>
     <string name="simulate_your_location_gpx_descr">Simula la mia posizione utilizzando una traccia GPX registrata.</string>
+    <string name="default_speed_dialog_msg">Utilizzata per stimare l\'orario d\'arrivo per le strade di tipo sconosciute e come limite di velocità per tutte le strade (può influenzare il calcolo del percorso)</string>
+    <string name="export_profile">Esporta il profilo</string>
+    <string name="exported_osmand_profile">Profilo OsmAnd: %1$s</string>
+    <string name="overwrite_profile_q">Il profilo \'%1$s\' c\'è già. Sovrascriverlo\?</string>
+    <string name="export_profile_failed">Esportazione del profilo non riuscita.</string>
+    <string name="profile_import">Importa il profilo:</string>
+    <string name="profile_import_descr">Per importare un profilo scegli il relativo file nel dispositivo e aprilo con OsmAnd.</string>
+    <string name="file_import_error">%1$s errore importazione: %2$s</string>
+    <string name="file_imported_successfully">%1$s importato con successo.</string>
+    <string name="rendering_value_white_name">Bianco</string>
+    <string name="swap_two_places">Inverti %1$s e %2$s</string>
+    <string name="route_start_point">Partenza</string>
+    <string name="track_saved">Traccia salvata</string>
+    <string name="empty_filename">Nome del file vuoto</string>
+    <string name="shared_string_revert">Ripristina</string>
+    <string name="rendering_attr_showCycleNodeNetworkRoutes_name">Mostra i nodi della rete dei percorsi ciclistici</string>
+    <string name="clear_confirmation_msg">Cancella %1$s\?</string>
 </resources>

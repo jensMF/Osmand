@@ -45,6 +45,7 @@ import net.osmand.plus.download.DownloadActivityType;
 import net.osmand.plus.helpers.FileNameTranslationHelper;
 import net.osmand.plus.routepreparationmenu.RoutingOptionsHelper;
 import net.osmand.plus.routing.RouteProvider.RouteService;
+import net.osmand.plus.routing.RoutingHelper;
 import net.osmand.plus.voice.CommandPlayer;
 import net.osmand.router.GeneralRouter;
 import net.osmand.router.GeneralRouter.GeneralRouterProfile;
@@ -788,16 +789,24 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 					settings.MIN_SPEED.set(minValue[0] / ratio[0]);
 					settings.MAX_SPEED.set(maxValue[0] / ratio[0]);
 				}
+				RoutingHelper routingHelper = app.getRoutingHelper();
+				if (mode.equals(routingHelper.getAppMode()) && (routingHelper.isRouteCalculated() || routingHelper.isRouteBeingCalculated())) {
+					routingHelper.recalculateRouteDueToSettingsChange();
+				}
 			}
 		});
 		builder.setNegativeButton(R.string.shared_string_cancel, null);
-		builder.setNeutralButton("Revert", new OnClickListener() {
+		builder.setNeutralButton(R.string.shared_string_revert, new OnClickListener() {
 			@Override
 			public void onClick(DialogInterface dialog, int which) {
 				mode.resetDefaultSpeed(app);
 				if (!defaultSpeedOnly) {
 					settings.MIN_SPEED.set(0f);
 					settings.MAX_SPEED.set(0f);
+				}
+				RoutingHelper routingHelper = app.getRoutingHelper();
+				if (mode.equals(routingHelper.getAppMode()) && (routingHelper.isRouteCalculated() || routingHelper.isRouteBeingCalculated())) {
+					routingHelper.recalculateRouteDueToSettingsChange();
 				}
 			}
 		});

@@ -26,10 +26,10 @@ import android.support.v7.preference.Preference.OnPreferenceClickListener;
 import android.support.v7.preference.PreferenceFragmentCompat;
 import android.support.v7.preference.PreferenceGroup;
 import android.support.v7.preference.PreferenceGroupAdapter;
+import android.support.v7.preference.PreferenceManager;
 import android.support.v7.preference.PreferenceScreen;
 import android.support.v7.preference.PreferenceViewHolder;
 import android.support.v7.preference.SwitchPreferenceCompat;
-import android.support.v7.view.ContextThemeWrapper;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -66,6 +66,7 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 		OnPreferenceClickListener, AppModeChangedListener {
 
 	private static final Log LOG = PlatformUtil.getLog(BaseSettingsFragment.class);
+	private static final String APP_MODE_KEY = "app_mode_key";
 
 	protected OsmandApplication app;
 	protected OsmandSettings settings;
@@ -73,6 +74,7 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 
 	protected int themeRes;
 
+	private ApplicationMode appMode;
 	private SettingsScreenType currentScreenType;
 
 	private int statusBarColor = -1;
@@ -94,7 +96,8 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 		VEHICLE_PARAMETERS(VehicleParametersFragment.class.getName(), true, R.xml.vehicle_parameters, R.layout.profile_preference_toolbar),
 		MAP_DURING_NAVIGATION(MapDuringNavigationFragment.class.getName(), true, R.xml.map_during_navigation, R.layout.profile_preference_toolbar),
 		TURN_SCREEN_ON(TurnScreenOnFragment.class.getName(), true, R.xml.turn_screen_on, R.layout.profile_preference_toolbar_with_switch),
-		DATA_STORAGE(DataStorageFragment.class.getName(), false, R.xml.data_storage, R.layout.global_preference_toolbar);
+		DATA_STORAGE(DataStorageFragment.class.getName(), false, R.xml.data_storage, R.layout.global_preference_toolbar),
+		DIALOGS_AND_NOTIFICATIONS_SETTINGS(DialogsAndNotificationsSettingsFragment.class.getName(), false, R.xml.dialogs_and_notifications_preferences, R.layout.global_preferences_toolbar_with_switch);
 
 		public final String fragmentName;
 		public final boolean profileDependent;
@@ -113,30 +116,55 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 	public void onCreate(Bundle savedInstanceState) {
 		app = requireMyApplication();
 		settings = app.getSettings();
+		Bundle args = getArguments();
+		if (savedInstanceState != null) {
+			appMode = ApplicationMode.valueOfStringKey(savedInstanceState.getString(APP_MODE_KEY), null);
+		}
+		if (appMode == null && args != null) {
+			appMode = ApplicationMode.valueOfStringKey(args.getString(APP_MODE_KEY), null);
+		}
+		if (appMode == null) {
+			appMode = settings.getApplicationMode();
+		}
 		super.onCreate(savedInstanceState);
 		currentScreenType = getCurrentScreenType();
 	}
 
 	@Override
 	public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-		getPreferenceManager().setPreferenceDataStore(settings.getDataStore());
+		getPreferenceManager().setPreferenceDataStore(settings.getDataStore(getSelectedAppMode()));
 	}
 
 	@Override
+	@SuppressLint("RestrictedApi")
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-		nightMode = !settings.isLightContent();
-		themeRes = nightMode ? R.style.OsmandDarkTheme : R.style.OsmandLightTheme;
-
+		updateTheme();
 		View view = super.onCreateView(inflater, container, savedInstanceState);
 		if (view != null) {
 			AndroidUtils.addStatusBarPadding21v(getContext(), view);
-			updateAllSettings();
+			if (getPreferenceScreen() != null) {
+				PreferenceManager prefManager = getPreferenceManager();
+				PreferenceScreen preferenceScreen = prefManager.inflateFromResource(prefManager.getContext(), currentScreenType.preferencesResId, null);
+				if (prefManager.setPreferences(preferenceScreen)) {
+					setupPreferences();
+					registerPreferences(preferenceScreen);
+				}
+			} else {
+				updateAllSettings();
+			}
 			createToolbar(inflater, view);
 			setDivider(null);
 			view.setBackgroundColor(ContextCompat.getColor(app, getBackgroundColorRes()));
 		}
-
 		return view;
+	}
+
+	private boolean updateTheme() {
+		boolean nightMode = !settings.isLightContent();
+		boolean changed = this.nightMode != nightMode;
+		this.nightMode = nightMode;
+		this.themeRes = nightMode ? R.style.OsmandDarkTheme : R.style.OsmandLightTheme;
+		return changed;
 	}
 
 	@Override
@@ -147,11 +175,9 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 
 	@Override
 	public RecyclerView onCreateRecyclerView(LayoutInflater inflater, ViewGroup parent, Bundle savedInstanceState) {
-		LayoutInflater themedInflater = UiUtilities.getInflater(getActivity(), nightMode);
-
+		LayoutInflater themedInflater = UiUtilities.getInflater(getActivity(), isNightMode());
 		RecyclerView recyclerView = super.onCreateRecyclerView(themedInflater, parent, savedInstanceState);
 		recyclerView.setPadding(0, 0, 0, AndroidUtils.dpToPx(app, 80));
-
 		return recyclerView;
 	}
 
@@ -170,6 +196,12 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 				}
 			}
 		};
+	}
+
+	@Override
+	public void onSaveInstanceState(Bundle outState) {
+		outState.putString(APP_MODE_KEY, appMode.getStringKey());
+		super.onSaveInstanceState(outState);
 	}
 
 	@Override
@@ -260,23 +292,49 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 			return;
 		}
 
+		ApplicationMode appMode = getSelectedAppMode();
 		if (preference instanceof ListPreferenceEx) {
-			SingleSelectPreferenceBottomSheet.showInstance(fragmentManager, preference.getKey(), this, false);
+			SingleSelectPreferenceBottomSheet.showInstance(fragmentManager, preference.getKey(), this, false, appMode);
 		} else if (preference instanceof SwitchPreferenceEx) {
-			BooleanPreferenceBottomSheet.showInstance(fragmentManager, preference.getKey(), this, false);
+			BooleanPreferenceBottomSheet.showInstance(fragmentManager, preference.getKey(), this, false, appMode);
 		} else if (preference instanceof EditTextPreference) {
-			EditTextPreferenceBottomSheet.showInstance(fragmentManager, preference.getKey(), this, false);
+			EditTextPreferenceBottomSheet.showInstance(fragmentManager, preference.getKey(), this, false, appMode);
 		} else if (preference instanceof MultiSelectBooleanPreference) {
-			MultiSelectPreferencesBottomSheet.showInstance(fragmentManager, preference.getKey(), this, false);
+			MultiSelectPreferencesBottomSheet.showInstance(fragmentManager, preference.getKey(), this, false, appMode);
 		} else {
 			super.onDisplayPreferenceDialog(preference);
 		}
 	}
 
 	@Override
-	public void onAppModeChanged() {
-		updateToolbar();
-		updateAllSettings();
+	public void onAppModeChanged(ApplicationMode appMode) {
+		this.appMode = appMode;
+		if (updateTheme()) {
+			recreate();
+		} else {
+			updateToolbar();
+			updateAllSettings();
+		}
+	}
+
+	public Bundle buildArguments() {
+		Bundle args = new Bundle();
+		args.putString(APP_MODE_KEY, appMode.getStringKey());
+		return args;
+	}
+
+	public void recreate() {
+		FragmentActivity activity = getActivity();
+		if (activity != null) {
+			Fragment fragment = Fragment.instantiate(activity, currentScreenType.fragmentName);
+			fragment.setArguments(buildArguments());
+			FragmentManager fm = activity.getSupportFragmentManager();
+			fm.popBackStack();
+			fm.beginTransaction()
+					.replace(R.id.fragmentContainer, fragment, fragment.getClass().getName())
+					.addToBackStack(DRAWER_SETTINGS_ID + ".new")
+					.commit();
+		}
 	}
 
 	protected abstract void setupPreferences();
@@ -301,7 +359,7 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 		AppBarLayout appBarLayout = (AppBarLayout) view.findViewById(R.id.appbar);
 		ViewCompat.setElevation(appBarLayout, 5.0f);
 
-		View toolbarContainer = UiUtilities.getInflater(getActivity(), nightMode).inflate(currentScreenType.toolbarResId, appBarLayout);
+		View toolbarContainer = UiUtilities.getInflater(getActivity(), isNightMode()).inflate(currentScreenType.toolbarResId, appBarLayout);
 
 		TextView toolbarTitle = (TextView) view.findViewById(R.id.toolbar_title);
 		toolbarTitle.setText(getPreferenceScreen().getTitle());
@@ -324,7 +382,8 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 				public void onClick(View v) {
 					FragmentManager fragmentManager = getFragmentManager();
 					if (fragmentManager != null) {
-						SelectAppModesBottomSheetDialogFragment.showInstance(fragmentManager, BaseSettingsFragment.this);
+						SelectAppModesBottomSheetDialogFragment.showInstance(fragmentManager,
+								BaseSettingsFragment.this, false, getSelectedAppMode(), false);
 					}
 				}
 			});
@@ -420,12 +479,27 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 		}
 	}
 
+	public void updateSetting(String prefId) {
+		updateAllSettings();
+	}
+
 	public void updateAllSettings() {
 		PreferenceScreen screen = getPreferenceScreen();
 		if (screen != null) {
-			getPreferenceScreen().removeAll();
+			screen.removeAll();
 		}
 		updatePreferencesScreen();
+	}
+
+	public boolean shouldDismissOnChange() {
+		return false;
+	}
+
+	public void dismiss() {
+		FragmentActivity activity = getActivity();
+		if (activity != null) {
+			activity.getSupportFragmentManager().popBackStack();
+		}
 	}
 
 	protected void enableDisablePreferences(boolean enable) {
@@ -475,7 +549,7 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 	}
 
 	public ApplicationMode getSelectedAppMode() {
-		return settings.APPLICATION_MODE.get();
+		return appMode;
 	}
 
 	public boolean isNightMode() {
@@ -636,9 +710,17 @@ public abstract class BaseSettingsFragment extends PreferenceFragmentCompat impl
 	}
 
 	public static boolean showInstance(FragmentActivity activity, SettingsScreenType screenType) {
+		return showInstance(activity, screenType, null);
+	}
+
+	public static boolean showInstance(FragmentActivity activity, SettingsScreenType screenType, @Nullable ApplicationMode appMode) {
 		try {
 			Fragment fragment = Fragment.instantiate(activity, screenType.fragmentName);
-
+			Bundle args = new Bundle();
+			if (appMode != null) {
+				args.putString(APP_MODE_KEY, appMode.getStringKey());
+			}
+			fragment.setArguments(args);
 			activity.getSupportFragmentManager().beginTransaction()
 					.replace(R.id.fragmentContainer, fragment, screenType.fragmentName)
 					.addToBackStack(DRAWER_SETTINGS_ID + ".new")

@@ -2,17 +2,20 @@ package net.osmand.plus.settings.bottomsheets;
 
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.view.View;
 
 import net.osmand.PlatformUtil;
+import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.base.bottomsheetmenu.BaseBottomSheetItem;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithCompoundButton;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.LongDescriptionItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleItem;
+import net.osmand.plus.settings.OnPreferenceChanged;
 import net.osmand.plus.settings.preferences.MultiSelectBooleanPreference;
 import net.osmand.util.Algorithms;
 
@@ -119,6 +122,11 @@ public class MultiSelectPreferencesBottomSheet extends BasePreferenceBottomSheet
 			final Set<String> values = enabledPrefs;
 			if (multiSelectBooleanPreference.callChangeListener(values)) {
 				multiSelectBooleanPreference.setValues(values);
+
+				Fragment target = getTargetFragment();
+				if (target instanceof OnPreferenceChanged) {
+					((OnPreferenceChanged) target).onPreferenceChanged(multiSelectBooleanPreference.getKey());
+				}
 			}
 		}
 		prefChanged = false;
@@ -149,7 +157,8 @@ public class MultiSelectPreferencesBottomSheet extends BasePreferenceBottomSheet
 		}
 	}
 
-	public static boolean showInstance(@NonNull FragmentManager fragmentManager, String prefId, Fragment target, boolean usedOnMap) {
+	public static boolean showInstance(@NonNull FragmentManager fragmentManager, String prefId, Fragment target,
+									   boolean usedOnMap, @Nullable ApplicationMode appMode) {
 		try {
 			Bundle args = new Bundle();
 			args.putString(PREFERENCE_ID, prefId);
@@ -157,6 +166,7 @@ public class MultiSelectPreferencesBottomSheet extends BasePreferenceBottomSheet
 			MultiSelectPreferencesBottomSheet fragment = new MultiSelectPreferencesBottomSheet();
 			fragment.setArguments(args);
 			fragment.setUsedOnMap(usedOnMap);
+			fragment.setAppMode(appMode);
 			fragment.setTargetFragment(target, 0);
 			fragment.show(fragmentManager, TAG);
 			return true;

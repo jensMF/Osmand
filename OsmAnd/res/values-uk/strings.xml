@@ -2293,6 +2293,7 @@
     <string name="quick_action_replace_destination">Замінити пункт призначення</string>
     <string name="quick_action_add_first_intermediate">Додати першу проміжну точку</string>
     <string name="quick_action_add_destination_desc">Натискання на кнопку дії додасть пункт призначення в центр екрану, раніше встановлений пункт призначення стає останнім проміжним пунктом.</string>
+    <string name="quick_action_directions_from_desc">Натискання на кнопку дії встановить пункт відправлення в центр екрану та прокладе шлях до раніше обраного пункту призначення або відкриє діалог для вибору пункту призначення якщо він відсутній на мапі.</string>
     <string name="quick_action_replace_destination_desc">Натискання на кнопку дії встановить пункт призначення в центр екрану, замінивши раніше обраний пункт призначення (якщо такий був).</string>
     <string name="quick_action_add_first_intermediate_desc">Натискання на кнопку дії додасть в центр екрану першу проміжну точку маршруту.</string>
     <string name="no_overlay">Мапа покриття вимкнена</string>
@@ -3111,7 +3112,6 @@
     <string name="default_speed_setting_title">Типова швидкість</string>
     <string name="default_speed_setting_descr">Змінити налаштування типової швидкості</string>
     <string name="minmax_speed_dialog_title">Встановити мінімальну/максимальну швидкість</string>
-    <string name="default_speed_dialog_msg">Використовується для розрахунку очікуваного часу прибуття під час слідування по маршруту</string>
     <string name="new_profile">Новий профіль</string>
     <string name="shared_string_crash">Збій</string>
     <string name="last_launch_crashed">Під час останнього запуску OsmAnd сталася помилка. Допоможіть нам покращити OsmAnd - надішліть повідомлення про помилку.</string>

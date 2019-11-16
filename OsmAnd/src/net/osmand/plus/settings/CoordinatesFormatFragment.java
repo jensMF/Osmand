@@ -39,9 +39,6 @@ public class CoordinatesFormatFragment extends BaseSettingsFragment {
 
 	@Override
 	protected void setupPreferences() {
-		Preference generalSettings = findPreference("coordinates_format_info");
-		generalSettings.setIcon(getContentIcon(R.drawable.ic_action_info_dark));
-
 		CheckBoxPreference degreesPref = (CheckBoxPreference) findPreference(FORMAT_DEGREES);
 		CheckBoxPreference minutesPref = (CheckBoxPreference) findPreference(FORMAT_MINUTES);
 		CheckBoxPreference secondsPref = (CheckBoxPreference) findPreference(FORMAT_SECONDS);
@@ -124,12 +121,18 @@ public class CoordinatesFormatFragment extends BaseSettingsFragment {
 
 				FragmentManager fragmentManager = getFragmentManager();
 				if (fragmentManager != null) {
-					ChangeGeneralProfilesPrefBottomSheet.showInstance(fragmentManager, settings.COORDINATES_FORMAT.getId(), newFormat, this, false);
+					ChangeGeneralProfilesPrefBottomSheet.showInstance(fragmentManager,
+							settings.COORDINATES_FORMAT.getId(), newFormat, this, false, getSelectedAppMode());
 				}
 			}
 		}
 
 		return false;
+	}
+
+	@Override
+	public boolean shouldDismissOnChange() {
+		return true;
 	}
 
 	private void updateSelectedFormatPrefs(String key) {

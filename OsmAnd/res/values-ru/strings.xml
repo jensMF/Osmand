@@ -104,6 +104,7 @@
     <string name="quick_action_replace_destination">Заменить пункт назначения</string>
     <string name="quick_action_add_first_intermediate">Добавить первую промежуточную точку</string>
     <string name="quick_action_add_destination_desc">Нажатие на кнопку действия добавит пункт назначения по центру экрана, любой ранее выбранный пункт назначения станет последним промежуточным пунктом.</string>
+    <string name="quick_action_directions_from_desc">Нажатие на кнопку действия добавит пункт отправления по центру экрана и проложит путь до ранее выбранного пункта назначения или откроет диалог для выбора пункта назначения если он отсутствует на карте.</string>
     <string name="quick_action_replace_destination_desc">Нажатие на кнопку действия установит пункт назначения по центру экрана, заменив ранее выбранный пункт назначения (если такой был).</string>
     <string name="quick_action_add_first_intermediate_desc">Нажатие на кнопку действия добавит по центру экрана первую промежуточную точку маршрута.</string>
     <string name="no_overlay">Нет покрытия</string>
@@ -1638,7 +1639,7 @@
     <string name="download_tab_local">Локальные</string>
     <string name="navigate_point_zone">Зона</string>
     <string name="rendering_attr_transportStops_name">Остановки транспорта</string>
-    <string name="shared_string_dismiss">Остановить</string>
+    <string name="shared_string_dismiss">Отклонить</string>
     <string name="dash_download_msg_none">Загрузить оффлайн карты?</string>
     <string name="dash_download_msg">Загружено карт: %1$s</string>
     <string name="dash_download_new_one">Загрузить новую карту</string>
@@ -3139,7 +3140,6 @@
     <string name="shared_string_max_speed">Макс. скорость</string>
     <string name="default_speed_setting_title">Скорость по умолчанию</string>
     <string name="default_speed_setting_descr">Изменение настроек скорости по умолчанию</string>
-    <string name="default_speed_dialog_msg">Используется для расчета ожидаемого времени прибытия во время навигации</string>
     <string name="new_profile">Новый профиль</string>
     <string name="release_3_4">• Профили приложения: создайте свой собственный профиль в соответствии с вашими потребностями, используя специальный значок и цвет. 
 \n 
@@ -3328,4 +3328,14 @@
     <string name="quick_action_hillshade_show">Показать затенение рельефа</string>
     <string name="quick_action_hillshade_hide">Скрыть затенение рельефа</string>
     <string name="quick_action_show_hide_hillshade">Показать/скрыть затенение рельефа</string>
+    <string name="export_profile">Экспорт профиля</string>
+    <string name="exported_osmand_profile">Профиль OsmAnd: %1$s</string>
+    <string name="overwrite_profile_q">Профиль \'%1$s\' уже существует. Перезаписать\?</string>
+    <string name="export_profile_failed">Не удалось экспортировать профиль.</string>
+    <string name="profile_import">Импорт профиля:</string>
+    <string name="profile_import_descr">Чтобы импортировать профиль, выберите его файл на устройстве и откройте с помощью OsmAnd.</string>
+    <string name="file_imported_successfully">%1$s успешно импортирован.</string>
+    <string name="rendering_value_white_name">Белый</string>
+    <string name="tts_initialization_error">Невозможно запустить механизм преобразования текста в речь</string>
+    <string name="file_import_error">Ошибка импорта %1$s: %2$s</string>
 </resources>

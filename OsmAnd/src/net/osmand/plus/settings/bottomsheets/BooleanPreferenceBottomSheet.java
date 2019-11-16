@@ -5,6 +5,7 @@ import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.view.ContextThemeWrapper;
@@ -12,6 +13,7 @@ import android.view.View;
 
 import net.osmand.AndroidUtils;
 import net.osmand.PlatformUtil;
+import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandSettings;
 import net.osmand.plus.OsmandSettings.BooleanPreference;
@@ -22,6 +24,7 @@ import net.osmand.plus.base.bottomsheetmenu.BaseBottomSheetItem;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithCompoundButton;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithDescription;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleItem;
+import net.osmand.plus.settings.OnPreferenceChanged;
 import net.osmand.plus.settings.preferences.SwitchPreferenceEx;
 
 import org.apache.commons.logging.Log;
@@ -53,7 +56,7 @@ public class BooleanPreferenceBottomSheet extends BasePreferenceBottomSheet {
 		final OsmandSettings.BooleanPreference pref = (BooleanPreference) preference;
 		final String on = getString(R.string.shared_string_on);
 		final String off = getString(R.string.shared_string_off);
-		boolean checked = pref.get();
+		boolean checked = pref.getModeValue(getAppMode());
 
 		final BottomSheetItemWithCompoundButton[] preferenceBtn = new BottomSheetItemWithCompoundButton[1];
 		preferenceBtn[0] = (BottomSheetItemWithCompoundButton) new BottomSheetItemWithCompoundButton.Builder()
@@ -63,11 +66,16 @@ public class BooleanPreferenceBottomSheet extends BasePreferenceBottomSheet {
 				.setOnClickListener(new View.OnClickListener() {
 					@Override
 					public void onClick(View v) {
-						boolean newValue = !pref.get();
+						boolean newValue = !pref.getModeValue(getAppMode());
 						if (switchPreference.callChangeListener(newValue)) {
 							switchPreference.setChecked(newValue);
 							preferenceBtn[0].setTitle(newValue ? on : off);
 							preferenceBtn[0].setChecked(newValue);
+
+							Fragment target = getTargetFragment();
+							if (target instanceof OnPreferenceChanged) {
+								((OnPreferenceChanged) target).onPreferenceChanged(switchPreference.getKey());
+							}
 						}
 					}
 				})
@@ -94,7 +102,7 @@ public class BooleanPreferenceBottomSheet extends BasePreferenceBottomSheet {
 		View customView = View.inflate(new ContextThemeWrapper(app, themeRes), R.layout.bottom_sheet_item_preference_switch, null);
 		View buttonView = customView.findViewById(R.id.button_container);
 
-		int colorRes = app.getSettings().APPLICATION_MODE.get().getIconColorInfo().getColor(nightMode);
+		int colorRes = getAppMode().getIconColorInfo().getColor(nightMode);
 		int color = getResolvedColor(colorRes);
 		int bgColor = UiUtilities.getColorWithAlpha(color, 0.1f);
 		int selectedColor = UiUtilities.getColorWithAlpha(color, 0.3f);
@@ -120,7 +128,8 @@ public class BooleanPreferenceBottomSheet extends BasePreferenceBottomSheet {
 		return (SwitchPreferenceEx) getPreference();
 	}
 
-	public static void showInstance(@NonNull FragmentManager fm, String prefId, Fragment target, boolean usedOnMap) {
+	public static void showInstance(@NonNull FragmentManager fm, String prefId, Fragment target, boolean usedOnMap,
+									@Nullable ApplicationMode appMode) {
 		try {
 			if (fm.findFragmentByTag(BooleanPreferenceBottomSheet.TAG) == null) {
 				Bundle args = new Bundle();
@@ -129,6 +138,7 @@ public class BooleanPreferenceBottomSheet extends BasePreferenceBottomSheet {
 				BooleanPreferenceBottomSheet fragment = new BooleanPreferenceBottomSheet();
 				fragment.setArguments(args);
 				fragment.setUsedOnMap(usedOnMap);
+				fragment.setAppMode(appMode);
 				fragment.setTargetFragment(target, 0);
 				fragment.show(fm, BooleanPreferenceBottomSheet.TAG);
 			}

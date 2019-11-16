@@ -982,5 +982,4 @@ public class ImportHelper {
 			items.add(asGpxItem);
 		}
 	}
-	
 }

@@ -198,6 +198,7 @@ public class SavingTrackHelper extends SQLiteOpenHelper {
 	 */
 	public synchronized SaveGpxResult saveDataToGpx(File dir) {
 		List<String> warnings = new ArrayList<>();
+		List<String> directories = new ArrayList<>();
 		List<String> filenames = new ArrayList<>();
 		dir.mkdirs();
 		if (dir.getParentFile().canWrite()) {
@@ -209,7 +210,7 @@ public class SavingTrackHelper extends SQLiteOpenHelper {
 					File fout = new File(dir, f + ".gpx"); //$NON-NLS-1$
 					if (!data.get(f).isEmpty()) {
 						WptPt pt = data.get(f).findPointToShow();
-						String fileName = f + "_" + new SimpleDateFormat("HH-mm_EEE", Locale.US).format(new Date(pt.time)); //$NON-NLS-1$
+						File targetDir = dir;
 						Integer track_storage_directory = ctx.getSettings().TRACK_STORAGE_DIRECTORY.get();
 						if (track_storage_directory != OsmandSettings.REC_DIRECTORY) {
 							SimpleDateFormat monthDirFormat = new SimpleDateFormat("yyyy-MM");
@@ -218,24 +219,25 @@ public class SavingTrackHelper extends SQLiteOpenHelper {
 								SimpleDateFormat dayDirFormat = new SimpleDateFormat("yyyy-MM-dd");
 								dateDirName = dateDirName + File.separator + dayDirFormat.format(new Date(pt.time));
 							}
-							File dateDir = new File(dir, dateDirName);
-							dateDir.mkdirs();
-							if (dateDir.exists()) {
-								fileName = dateDirName + File.separator + fileName;
+							targetDir = new File(dir, dateDirName);
+							targetDir.mkdirs();
+							if (targetDir.exists()) {
+								directories.add(dateDirName);
 							}
 						}
+						String fileName = f + "_" + new SimpleDateFormat("HH-mm_EEE", Locale.US).format(new Date(pt.time)); //$NON-NLS-1$
 						filenames.add(fileName);
-						fout = new File(dir, fileName + ".gpx"); //$NON-NLS-1$
+						fout = new File(targetDir, fileName + ".gpx"); //$NON-NLS-1$
 						int ind = 1;
 						while (fout.exists()) {
-							fout = new File(dir, fileName + "_" + (++ind) + ".gpx"); //$NON-NLS-1$ //$NON-NLS-2$
+							fout = new File(targetDir, fileName + "_" + (++ind) + ".gpx"); //$NON-NLS-1$ //$NON-NLS-2$
 						}
 					}
 
 					Exception warn = GPXUtilities.writeGpxFile(fout, data.get(f));
 					if (warn != null) {
 						warnings.add(warn.getMessage());
-						return new SaveGpxResult(warnings, new ArrayList<String>());
+						return new SaveGpxResult(warnings, new ArrayList<String>(), new ArrayList<String>());
 					}
 
 					GPXFile gpx = data.get(f);
@@ -272,7 +274,7 @@ public class SavingTrackHelper extends SQLiteOpenHelper {
 		currentTrack.getModifiablePointsToDisplay().clear();
 		currentTrack.getModifiableGpxFile().modifiedTime = System.currentTimeMillis();
 		prepareCurrentTrackForRecording();
-		return new SaveGpxResult(warnings, filenames);
+		return new SaveGpxResult(warnings, directories, filenames);
 	}
 
 	public Map<String, GPXFile> collectRecordedData() {
@@ -701,12 +703,14 @@ public class SavingTrackHelper extends SQLiteOpenHelper {
 	
 	public class SaveGpxResult {
 
-		public SaveGpxResult(List<String> warnings, List<String> filenames) {
+		public SaveGpxResult(List<String> warnings, List<String> directories, List<String> filenames) {
 			this.warnings = warnings;
+			this.directories = directories;
 			this.filenames = filenames;
 		}
 
 		List<String> warnings;
+		List<String> directories;
 		List<String> filenames;
 
 		public List<String> getWarnings() {
@@ -715,6 +719,10 @@ public class SavingTrackHelper extends SQLiteOpenHelper {
 
 		public List<String> getFilenames() {
 			return filenames;
+		}
+
+		public List<String> getDirectories() {
+			return directories;
 		}
 	}
 

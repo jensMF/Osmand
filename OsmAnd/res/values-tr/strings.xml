@@ -2421,7 +2421,7 @@
     <string name="route_descr_select_start_point">Kalkış noktasını seç</string>
     <string name="rendering_attr_surface_unpaved_name">Kaplamasız</string>
     <string name="rendering_attr_surface_sand_name">Kum</string>
-    <string name="rendering_attr_surface_grass_name">Çimen</string>
+    <string name="rendering_attr_surface_grass_name">Çim</string>
     <string name="rendering_attr_surface_ground_name">Zemin</string>
     <string name="rendering_attr_surface_mud_name">Çamur</string>
     <string name="rendering_attr_surface_ice_name">Buz</string>
@@ -2954,7 +2954,7 @@
     <string name="use_osm_live_public_transport_description">OsmAnd Live değişiklikleri için toplu taşıma araçlarını etkinleştirin.</string>
     <string name="use_osm_live_public_transport">OsmAnd Live toplu taşıma</string>
     <string name="transfers_size">%1$d transfer</string>
-    <string name="rendering_attr_surface_grass_paver_name">Çimen kaldırım</string>
+    <string name="rendering_attr_surface_grass_paver_name">Çim kaldırım</string>
     <string name="rendering_attr_surface_dirt_name">Toprak</string>
     <string name="rendering_attr_surface_sett_name">Kaldırım taşı</string>
     <string name="rendering_attr_smoothness_impassable_name">Geçilmez</string>
@@ -3344,4 +3344,14 @@
     <string name="quick_action_directions_from_desc">Başlangıç noktasını ekranın merkezi yapan ve hedefe giden rotayı hesaplayan veya hedef işaretleyici haritada değilse, hedefi seçmek için bir iletişim kutusu açan bir buton.</string>
     <string name="rendering_attr_showCycleNodeNetworkRoutes_name">Düğüm ağı bisiklet rotalarını göster</string>
     <string name="clear_confirmation_msg">%1$s\'i temizle\?</string>
+    <string name="download_map_dialog">Harita indirme iletişim kutusu</string>
+    <string name="dialogs_and_notifications_title">İletişim kutuları ve bildirimler</string>
+    <string name="dialogs_and_notifications_descr">OsmAnd\'ın kullanım sırasında gösterdiği açılır pencereleri, iletişim kutularını ve bildirimleri kontrol edin.</string>
+    <string name="rendering_value_walkingRoutesOSMCNodes_name">Düğüm ağları</string>
+    <string name="suggested_maps">Önerilen haritalar</string>
+    <string name="suggested_maps_descr">Bu haritaların eklenti ile kullanılması gerekmektedir</string>
+    <string name="added_profiles">Eklenen profiller</string>
+    <string name="added_profiles_descr">Eklenti OsmAnd\'a yeni profil ekler</string>
+    <string name="shared_string_turn_off">Kapat</string>
+    <string name="new_plugin_added">Yeni eklenti eklendi</string>
 </resources>

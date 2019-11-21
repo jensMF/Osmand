@@ -143,6 +143,7 @@ public class OsmandAidlApi {
 	private static final String AIDL_SEARCH_LON = "aidl_search_lon";
 
 	private static final String AIDL_OBJECT_ID = "aidl_object_id";
+	private static final String AIDL_PACKAGE_NAME = "aidl_package_name";
 
 	private static final String AIDL_ADD_MAP_WIDGET = "aidl_add_map_widget";
 	private static final String AIDL_REMOVE_MAP_WIDGET = "aidl_remove_map_widget";
@@ -415,14 +416,15 @@ public class OsmandAidlApi {
 			public void onReceive(Context context, Intent intent) {
 				MapActivity mapActivity = mapActivityRef.get();
 				String layerId = intent.getStringExtra(AIDL_OBJECT_ID);
-				if (mapActivity != null && layerId != null) {
+				String packName = intent.getStringExtra(AIDL_PACKAGE_NAME);
+				if (mapActivity != null && packName != null && layerId != null) {
 					AidlMapLayerWrapper layer = layers.get(layerId);
 					if (layer != null) {
 						OsmandMapLayer mapLayer = mapLayers.get(layerId);
 						if (mapLayer != null) {
 							mapActivity.getMapView().removeLayer(mapLayer);
 						}
-						mapLayer = new AidlMapLayer(mapActivity, layer);
+						mapLayer = new AidlMapLayer(mapActivity, layer, packName);
 						mapActivity.getMapView().addLayer(mapLayer, layer.getZOrder());
 						mapLayers.put(layerId, mapLayer);
 					}
@@ -839,10 +841,14 @@ public class OsmandAidlApi {
 	public void registerMapLayers(MapActivity mapActivity) {
 		for (AidlMapLayerWrapper layer : layers.values()) {
 			OsmandMapLayer mapLayer = mapLayers.get(layer.getId());
+			String packName = "";
 			if (mapLayer != null) {
+				if (mapLayer instanceof AidlMapLayer) {
+					packName = ((AidlMapLayer) mapLayer).getPackName();
+				}
 				mapActivity.getMapView().removeLayer(mapLayer);
 			}
-			mapLayer = new AidlMapLayer(mapActivity, layer);
+			mapLayer = new AidlMapLayer(mapActivity, layer, packName);
 			mapActivity.getMapView().addLayer(mapLayer, layer.getZOrder());
 			mapLayers.put(layer.getId(), mapLayer);
 		}
@@ -1093,7 +1099,7 @@ public class OsmandAidlApi {
 		}
 	}
 
-	boolean addMapLayer(AidlMapLayerWrapper layer) {
+	boolean addMapLayer(String packName, AidlMapLayerWrapper layer) {
 		if (layer != null) {
 			if (layers.containsKey(layer.getId())) {
 				updateMapLayer(layer);
@@ -1102,6 +1108,7 @@ public class OsmandAidlApi {
 				Intent intent = new Intent();
 				intent.setAction(AIDL_ADD_MAP_LAYER);
 				intent.putExtra(AIDL_OBJECT_ID, layer.getId());
+				intent.putExtra(AIDL_PACKAGE_NAME, packName);
 				app.sendBroadcast(intent);
 			}
 			refreshMap();
@@ -1231,7 +1238,7 @@ public class OsmandAidlApi {
 					@Override
 					protected void onPostExecute(GPXFile gpx) {
 						if (gpx.error == null) {
-							selectedGpx.setGpxFile(gpx);
+							selectedGpx.setGpxFile(gpx, app);
 							refreshMap();
 						}
 					}
@@ -1410,7 +1417,7 @@ public class OsmandAidlApi {
 				}
 				long modifiedTime = gpxFile.modifiedTime;
 				long fileSize = new File(gpxFile.path).length();
-				files.add(new ASelectedGpxFile(path, modifiedTime, fileSize, createGpxFileDetails(selectedGpxFile.getTrackAnalysis())));
+				files.add(new ASelectedGpxFile(path, modifiedTime, fileSize, createGpxFileDetails(selectedGpxFile.getTrackAnalysis(app))));
 			}
 		}
 		return true;
@@ -1428,7 +1435,7 @@ public class OsmandAidlApi {
 				}
 				long modifiedTime = gpxFile.modifiedTime;
 				long fileSize = new File(gpxFile.path).length();
-				files.add(new net.osmand.aidlapi.gpx.ASelectedGpxFile(path, modifiedTime, fileSize, createGpxFileDetailsV2(selectedGpxFile.getTrackAnalysis())));
+				files.add(new net.osmand.aidlapi.gpx.ASelectedGpxFile(path, modifiedTime, fileSize, createGpxFileDetailsV2(selectedGpxFile.getTrackAnalysis(app))));
 			}
 		}
 		return true;
@@ -1833,7 +1840,7 @@ public class OsmandAidlApi {
 		return saveConnectedApps(selectedAppMode, connectedApps);
 	}
 
-	boolean isAppEnabled(@NonNull String pack) {
+	public boolean isAppEnabled(@NonNull String pack) {
 		ConnectedApp app = connectedApps.get(pack);
 		if (app == null) {
 			app = new ConnectedApp(pack, true);

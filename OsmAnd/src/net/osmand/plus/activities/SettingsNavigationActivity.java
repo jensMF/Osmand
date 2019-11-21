@@ -39,6 +39,7 @@ import net.osmand.plus.OsmandSettings.AutoZoomMap;
 import net.osmand.plus.OsmandSettings.OsmandPreference;
 import net.osmand.plus.OsmandSettings.SpeedConstants;
 import net.osmand.plus.R;
+import net.osmand.plus.UiUtilities;
 import net.osmand.plus.Version;
 import net.osmand.plus.download.DownloadActivity;
 import net.osmand.plus.download.DownloadActivityType;
@@ -456,8 +457,8 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 				startActivity(intent);
 			} else {
 				super.onPreferenceChange(preference, newValue);
-				getMyApplication().initVoiceCommandPlayer(
-						this, settings.APPLICATION_MODE.get(), false, null, true, false);
+				getMyApplication().initVoiceCommandPlayer(this, settings.APPLICATION_MODE.get(),
+						false, null, true, false, false);
 			}
 			return true;
 		}
@@ -664,9 +665,9 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 			});
 			return true;
 		} else if (preference == defaultSpeed) {
-			showSeekbarSettingsDialog(this, false);
+			showSeekbarSettingsDialog(this, false, settings.getApplicationMode());
 		} else if (preference == defaultSpeedOnly) {
-			showSeekbarSettingsDialog(this, true);
+			showSeekbarSettingsDialog(this, true, settings.getApplicationMode());
 		}
 		return false;
 	}
@@ -720,14 +721,13 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 		return bld.show();
 	}
 
-	public static void showSeekbarSettingsDialog(Activity activity, final boolean defaultSpeedOnly) {
-		if (activity == null) {
+	public static void showSeekbarSettingsDialog(Activity activity, final boolean defaultSpeedOnly, final ApplicationMode mode) {
+		if (activity == null || mode == null) {
 			return;
 		}
 		final OsmandApplication app = (OsmandApplication) activity.getApplication();
 		final OsmandSettings settings = app.getSettings();
 
-		final ApplicationMode mode = settings.getApplicationMode();
 		GeneralRouter router = getRouter(app.getRoutingConfig(), mode);
 		SpeedConstants units = settings.SPEED_SYSTEM.get();
 		String speedUnits = units.toShortString(activity);
@@ -775,11 +775,10 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 			max = Math.round(router.getMaxSpeed() * ratio[0] * 1.5f);
 		}
 
-		AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-		boolean lightMode = app.getSettings().isLightContent();
-		int themeRes = lightMode ? R.style.OsmandLightTheme : R.style.OsmandDarkTheme;
-		View seekbarView = LayoutInflater.from(new ContextThemeWrapper(activity, themeRes))
-				.inflate(R.layout.default_speed_dialog, null, false);
+		boolean nightMode = !app.getSettings().isLightContentForMode(mode);
+		Context themedContext = UiUtilities.getThemedContext(activity, nightMode);
+		AlertDialog.Builder builder = new AlertDialog.Builder(themedContext);
+		View seekbarView = LayoutInflater.from(themedContext).inflate(R.layout.default_speed_dialog, null, false);
 		builder.setView(seekbarView);
 		builder.setPositiveButton(R.string.shared_string_ok, new OnClickListener() {
 			@Override

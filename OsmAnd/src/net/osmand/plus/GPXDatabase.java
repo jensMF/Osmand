@@ -250,12 +250,12 @@ public class GPXDatabase {
         if (conn == null) {
             return null;
         }
-        if (conn.getVersion() - 1 < DB_VERSION) {
+        if (conn.getVersion() < DB_VERSION) {
             if (readonly) {
                 conn.close();
                 conn = context.getSQLiteAPI().getOrCreateDatabase(DB_NAME, false);
             }
-            int version = conn.getVersion() - 1;
+            int version = conn.getVersion();
             conn.setVersion(DB_VERSION);
             if (version == 0) {
                 onCreate(conn);
@@ -347,40 +347,32 @@ public class GPXDatabase {
                     "WHERE " + GPX_COL_JOIN_SEGMENTS + " IS NULL", new Object[]{0});
         }
         if (oldVersion < 11) {
-            SQLiteCursor cursor = db.rawQuery(GPX_TABLE_SELECT, null);
-            if (cursor.moveToFirst()) {
-                int index = cursor.getColumnIndex(GPX_COL_NAME);
-                String tmpName = cursor.getString(index);
-                if(tmpName != null && tmpName != "") {
-                    File lookupDir = context.getAppPath(IndexConstants.GPX_INDEX_DIR);
-                    updateColDir(db, tmpName, lookupDir);
-                    while (cursor.moveToNext()) {
-                        index = cursor.getColumnIndex(GPX_COL_NAME);
-                        tmpName = cursor.getString(index);
-                        updateColDir(db, tmpName, lookupDir);
-                    }
-                }
+            File lookupDir = context.getAppPath(IndexConstants.GPX_INDEX_DIR);
+            List<File> toUpdate = updateFileDir(lookupDir);
+            for(File file : toUpdate) {
+                db.execSQL("UPDATE " + GPX_TABLE_NAME +
+                        " SET " + GPX_COL_DIR + " = ?" +
+                        "WHERE " + GPX_COL_NAME + " = ?"
+                        , new Object[]{getFileDir(file), file.getName()});
             }
-            cursor.close();
         }
         db.execSQL("CREATE INDEX IF NOT EXISTS " + GPX_INDEX_NAME_DIR + " ON " + GPX_TABLE_NAME + " (" + GPX_COL_NAME + ", " + GPX_COL_DIR + ");");
     }
 
-    private void updateColDir(SQLiteConnection db, String name, File lookupDir) {
+    private List<File> updateFileDir(File lookupDir) {
         File[] lookupArray = lookupDir.listFiles();
+        List<File> dirList = new ArrayList<>();
         if (lookupArray != null) {
             for (File toCheck : lookupArray) {
                 if (toCheck.isDirectory()) {
-                    updateColDir(db, name, toCheck);
+                    dirList.addAll(updateFileDir(toCheck));
                 }
-                else if (name.equalsIgnoreCase(toCheck.getName())) {
-                    String trackDirName = context.getAppPath(IndexConstants.GPX_INDEX_DIR).getAbsolutePath() + File.separator;
-                    db.execSQL("UPDATE " + GPX_TABLE_NAME +
-                            " SET " + GPX_COL_DIR + " = ? " +
-                            "WHERE " + GPX_COL_NAME + " = ?", new Object[]{toCheck.getParentFile().getAbsolutePath().replace(trackDirName, ""), name});
+                else {
+                    dirList.add(toCheck);
                 }
             }
         }
+        return dirList;
     }
 
     private boolean updateLastModifiedTime(GpxDataItem item) {
@@ -540,9 +532,9 @@ public class GPXDatabase {
     }
 
     private String getFileDir(File itemFile) {
-        LOG.error("getFileDir: " + new File(itemFile.getPath().replace(context.getAppPath(IndexConstants.GPX_INDEX_DIR).getPath() + "/", "")).getParent());
-        return itemFile.getParentFile() == null ? ""
-                : new File(itemFile.getPath().replace(context.getAppPath(IndexConstants.GPX_INDEX_DIR).getPath() + "/", "")).getParent();
+        return itemFile.getParentFile() == null  ||
+                itemFile.getParentFile().equals(context.getAppPath(IndexConstants.GPX_INDEX_DIR)) ?
+                "" : new File(itemFile.getPath().replace(context.getAppPath(IndexConstants.GPX_INDEX_DIR).getPath() + "/", "")).getParent();
     }
 
     void insert(GpxDataItem item, SQLiteConnection db) {

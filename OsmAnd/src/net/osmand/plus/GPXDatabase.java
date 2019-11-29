@@ -532,9 +532,9 @@ public class GPXDatabase {
     }
 
     private String getFileDir(File itemFile) {
-        return itemFile.getParentFile() == null  ||
-                itemFile.getParentFile().equals(context.getAppPath(IndexConstants.GPX_INDEX_DIR)) ?
-                "" : new File(itemFile.getPath().replace(context.getAppPath(IndexConstants.GPX_INDEX_DIR).getPath() + "/", "")).getParent();
+        String fileDir = itemFile.getParentFile() == null ? ""
+                : new File(itemFile.getPath().replace(context.getAppPath(IndexConstants.GPX_INDEX_DIR).getPath() + "/", "")).getParent();
+        return fileDir != null ? fileDir : "";
     }
 
     void insert(GpxDataItem item, SQLiteConnection db) {

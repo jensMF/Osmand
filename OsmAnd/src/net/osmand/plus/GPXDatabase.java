@@ -3,9 +3,6 @@ package net.osmand.plus;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
-import net.osmand.PlatformUtil;
-import org.apache.commons.logging.Log;
-
 import net.osmand.GPXUtilities.GPXTrackAnalysis;
 import net.osmand.IndexConstants;
 import net.osmand.plus.api.SQLiteAPI.SQLiteConnection;
@@ -17,8 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class GPXDatabase {
-
-    private static final Log LOG = PlatformUtil.getLog(GPXDatabase.class);
 
     private static final String DB_NAME = "gpx_database";
     private static final int DB_VERSION = 11;

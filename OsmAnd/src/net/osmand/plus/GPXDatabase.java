@@ -268,6 +268,11 @@ public class GPXDatabase {
     }
 
     private void cleanUpDatabase(SQLiteConnection db) {
+        db.execSQL("DELETE FROM " + GPX_TABLE_NAME +
+                " WHERE rowid NOT IN (" +
+                "SELECT MIN(rowid)" +
+                " FROM " + GPX_TABLE_NAME +
+                " GROUP BY " + GPX_COL_DIR + ", " + GPX_COL_NAME + ")");
         SQLiteCursor query = db.rawQuery("SELECT " + GPX_COL_NAME + ", " +
                 GPX_COL_DIR +
                 " FROM " + GPX_TABLE_NAME, null);
@@ -291,11 +296,6 @@ public class GPXDatabase {
                                             GPX_COL_NAME + " = ?",
                                     new Object[]{fileDir, fileName});
                         }
-                        db.execSQL("DELETE FROM " + GPX_TABLE_NAME +
-                                        " WHERE rowid NOT IN (" +
-                                            "SELECT MIN(rowid)" +
-                                            " FROM " + GPX_TABLE_NAME +
-                                            " GROUP BY " + GPX_COL_DIR + ", " + GPX_COL_NAME + ")");
                     } while (query.moveToNext());
                 }
             } finally {

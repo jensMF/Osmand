@@ -41,7 +41,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.logging.Log;
 import static net.osmand.plus.download.ui.LocalIndexesFragment.ILLEGAL_FILE_NAME_CHARACTERS;
 
 public class OnSaveCurrentTrackFragment extends BottomSheetDialogFragment {
@@ -186,7 +185,8 @@ public class OnSaveCurrentTrackFragment extends BottomSheetDialogFragment {
 			Toast.makeText(app, R.string.empty_filename, Toast.LENGTH_LONG).show();
 			return null;
 		}
-		return LocalIndexesFragment.renameGpxFile(app, savedFile, newGpxName + ".gpx", true, null);
+
+		return LocalIndexesFragment.renameGpxFile(app, savedFile, newGpxName + ".gpx", false, null);
 	}
 
 	private void showOnMap(File f, boolean animated) {

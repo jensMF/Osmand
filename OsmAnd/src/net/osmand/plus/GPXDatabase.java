@@ -263,7 +263,7 @@ public class GPXDatabase {
                 onUpgrade(conn, version, DB_VERSION);
             }
         }
-        //cleanUpDatabase(conn);
+        cleanUpDatabase(conn);
         return conn;
     }
 

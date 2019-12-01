@@ -285,8 +285,6 @@ public class GPXDatabase {
                         }
                         File toCheck = new File(dir, fileName);
                         if (!toCheck.exists()) {
-                            LOG.error("Checking: " + toCheck.getAbsolutePath());
-                            LOG.error("exists: " + toCheck.exists());
                             db.execSQL("DELETE FROM " + GPX_TABLE_NAME +
                                             " WHERE " +
                                             GPX_COL_DIR + " = ? AND " +

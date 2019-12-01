@@ -5,15 +5,20 @@ import android.support.annotation.Nullable;
 
 import net.osmand.GPXUtilities.GPXTrackAnalysis;
 import net.osmand.IndexConstants;
+import net.osmand.PlatformUtil;
 import net.osmand.plus.api.SQLiteAPI.SQLiteConnection;
 import net.osmand.plus.api.SQLiteAPI.SQLiteCursor;
 import net.osmand.util.Algorithms;
+
+import org.apache.commons.logging.Log;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 public class GPXDatabase {
+
+    public final static Log LOG = PlatformUtil.getLog(GPXDatabase.class);
 
     private static final String DB_NAME = "gpx_database";
     private static final int DB_VERSION = 11;
@@ -258,6 +263,7 @@ public class GPXDatabase {
                 onUpgrade(conn, version, DB_VERSION);
             }
         }
+        cleanUpDatabase(conn);
         return conn;
     }
 
@@ -343,24 +349,24 @@ public class GPXDatabase {
         }
         if (oldVersion < 11) {
             File lookupDir = context.getAppPath(IndexConstants.GPX_INDEX_DIR);
-            List<File> toUpdate = updateFileDir(lookupDir);
-            for(File file : toUpdate) {
+            List<File> toUpdate = allFilesInDir(lookupDir);
+            for (File file : toUpdate) {
                 db.execSQL("UPDATE " + GPX_TABLE_NAME +
-                        " SET " + GPX_COL_DIR + " = ?" +
-                        "WHERE " + GPX_COL_NAME + " = ?"
-                        , new Object[]{getFileDir(file), file.getName()});
+                                " SET " + GPX_COL_DIR + " = ? " +
+                                " WHERE " + GPX_COL_NAME + " = ?",
+                        new Object[]{getFileDir(file), getFileName(file)});
             }
         }
         db.execSQL("CREATE INDEX IF NOT EXISTS " + GPX_INDEX_NAME_DIR + " ON " + GPX_TABLE_NAME + " (" + GPX_COL_NAME + ", " + GPX_COL_DIR + ");");
     }
 
-    private List<File> updateFileDir(File lookupDir) {
+    private List<File> allFilesInDir(File lookupDir) {
         File[] lookupArray = lookupDir.listFiles();
         List<File> dirList = new ArrayList<>();
         if (lookupArray != null) {
             for (File toCheck : lookupArray) {
                 if (toCheck.isDirectory()) {
-                    dirList.addAll(updateFileDir(toCheck));
+                    dirList.addAll(allFilesInDir(toCheck));
                 }
                 else {
                     dirList.add(toCheck);
@@ -368,6 +374,40 @@ public class GPXDatabase {
             }
         }
         return dirList;
+    }
+
+    private void cleanUpDatabase(SQLiteConnection db) {
+        SQLiteCursor query = db.rawQuery("SELECT " + GPX_COL_NAME + ", " +
+                                                         GPX_COL_DIR +
+                                             " FROM " + GPX_TABLE_NAME, null);
+        if (query != null) {
+            try {
+                if (query.moveToFirst()) {
+                    do {
+                        String fileName = query.getString(0);
+                        String fileDir = query.getString(1);
+                        File dir;
+                        if (!Algorithms.isEmpty(fileDir)) {
+                            dir = new File(context.getAppPath(IndexConstants.GPX_INDEX_DIR), fileDir);
+                        } else {
+                            dir = context.getAppPath(IndexConstants.GPX_INDEX_DIR);
+                        }
+                        File toCheck = new File(dir, fileName);
+                        if (!toCheck.exists()) {
+                            LOG.error("Checking: " + toCheck.getAbsolutePath());
+                            LOG.error("exists: " + toCheck.exists());
+                            db.execSQL("DELETE FROM " + GPX_TABLE_NAME +
+                                            " WHERE " +
+                                            GPX_COL_DIR + " = ? AND " +
+                                            GPX_COL_NAME + " = ?",
+                                    new Object[]{fileDir, fileName});
+                        }
+                    } while (query.moveToNext());
+                }
+            } finally {
+                query.close();
+            }
+        }
     }
 
     private boolean updateLastModifiedTime(GpxDataItem item) {

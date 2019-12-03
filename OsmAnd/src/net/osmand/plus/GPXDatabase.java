@@ -263,7 +263,7 @@ public class GPXDatabase {
                 onUpgrade(conn, version, DB_VERSION);
             }
         }
-        cleanUpDatabase(conn);
+        //cleanUpDatabase(conn);
         return conn;
     }
 
@@ -272,6 +272,7 @@ public class GPXDatabase {
                 " WHERE rowid NOT IN (" +
                 "SELECT MIN(rowid)" +
                 " FROM " + GPX_TABLE_NAME +
+                " WHERE " + GPX_COL_NAME + " IS NOT null AND " + GPX_COL_NAME + " <> '' " +
                 " GROUP BY " + GPX_COL_DIR + ", " + GPX_COL_NAME + ")");
         SQLiteCursor query = db.rawQuery("SELECT " + GPX_COL_NAME + ", " +
                 GPX_COL_DIR +

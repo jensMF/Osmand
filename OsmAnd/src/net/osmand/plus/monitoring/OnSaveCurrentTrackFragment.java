@@ -164,9 +164,8 @@ public class OnSaveCurrentTrackFragment extends BottomSheetDialogFragment {
 			if (showOnMap) {
 				showOnMap(file, !openTrack);
 			}
-			FragmentActivity activity = getActivity();
-			if (openTrack && activity != null) {
-				AvailableGPXFragment.openTrack(activity, file);
+			if (openTrack) {
+				AvailableGPXFragment.openTrack(getActivity(), file);
 			}
 		}
 	}
@@ -185,23 +184,22 @@ public class OnSaveCurrentTrackFragment extends BottomSheetDialogFragment {
 			Toast.makeText(app, R.string.empty_filename, Toast.LENGTH_LONG).show();
 			return null;
 		}
+<<<<<<< HEAD
 
+=======
+>>>>>>> f791d91a0ecdd9be8a4e5e7dfa8fd9d6b006b00a
 		return LocalIndexesFragment.renameGpxFile(app, savedFile, newGpxName + ".gpx", false, null);
 	}
 
 	private void showOnMap(File f, boolean animated) {
-		FragmentActivity activity = getActivity();
-		if (activity == null) {
-			return;
-		}
-		OsmandApplication app = (OsmandApplication) activity.getApplication();
-
+		OsmandApplication app = requiredMyApplication();
 		GpxInfo gpxInfo = new GpxInfo();
 		gpxInfo.setGpx(GPXUtilities.loadGPXFile(f));
 		if (gpxInfo.gpx != null) {
 			WptPt loc = gpxInfo.gpx.findPointToShow();
 			if (loc != null) {
 				app.getSelectedGpxHelper().setGpxFileToDisplay(gpxInfo.gpx);
+				FragmentActivity activity = getActivity();
 				if (activity instanceof MapActivity) {
 					MapActivity mapActivity = (MapActivity) activity;
 					if (animated) {

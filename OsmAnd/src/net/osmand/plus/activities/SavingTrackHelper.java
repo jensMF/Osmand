@@ -194,7 +194,7 @@ public class SavingTrackHelper extends SQLiteOpenHelper {
 	}
 
 	/**
-	 * @return warnings, filenames
+	 * @return warnings, directories, filenames
 	 */
 	public synchronized SaveGpxResult saveDataToGpx(File dir) {
 		List<String> warnings = new ArrayList<>();

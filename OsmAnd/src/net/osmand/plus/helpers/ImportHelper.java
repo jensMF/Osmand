@@ -172,7 +172,7 @@ public class ImportHelper {
 
 	public static String getNameFromContentUri(OsmandApplication app, Uri contentUri) {
 		final String name;
-		final Cursor returnCursor = app.getContentResolver().query(contentUri, new String[] {OpenableColumns.DISPLAY_NAME}, null, null, null);
+		final Cursor returnCursor = app.getContentResolver().query(contentUri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
 		if (returnCursor != null && returnCursor.moveToFirst()) {
 			int columnIndex = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
 			if (columnIndex != -1) {
@@ -273,21 +273,21 @@ public class ImportHelper {
 
 	@SuppressLint("StaticFieldLeak")
 	private void importFavoritesImpl(final GPXFile gpxFile, final String fileName, final boolean forceImportFavourites) {
-		if(!app.isApplicationInitializing()) {
+		if (!app.isApplicationInitializing()) {
 			new AsyncTask<Void, Void, GPXFile>() {
 				ProgressDialog progress = null;
 
 				@Override
 				protected void onPreExecute() {
 					progress = ProgressDialog
-						.show(activity, app.getString(R.string.loading_smth, ""),
-							app.getString(R.string.loading_data));
+							.show(activity, app.getString(R.string.loading_smth, ""),
+									app.getString(R.string.loading_data));
 				}
 
 				@Override
 				protected GPXFile doInBackground(Void... nothing) {
 					final List<FavouritePoint> favourites = asFavourites(gpxFile.getPoints(),
-						fileName, forceImportFavourites);
+							fileName, forceImportFavourites);
 					final FavouritesDbHelper favoritesHelper = app.getFavorites();
 					for (final FavouritePoint favourite : favourites) {
 						favoritesHelper.deleteFavourite(favourite, false);
@@ -304,9 +304,9 @@ public class ImportHelper {
 						progress.dismiss();
 					}
 					Toast.makeText(activity, R.string.fav_imported_sucessfully, Toast.LENGTH_LONG)
-						.show();
+							.show();
 					final Intent newIntent = new Intent(activity,
-						app.getAppCustomization().getFavoritesActivity());
+							app.getAppCustomization().getFavoritesActivity());
 					newIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 					newIntent.putExtra(TAB_ID, FAV_TAB);
 					activity.startActivity(newIntent);
@@ -316,7 +316,8 @@ public class ImportHelper {
 			app.getAppInitializer().addListener(new AppInitializeListener() {
 
 				@Override
-				public void onProgress(AppInitializer init, InitEvents event) {}
+				public void onProgress(AppInitializer init, InitEvents event) {
+				}
 
 				@Override
 				public void onFinish(AppInitializer init) {
@@ -768,7 +769,7 @@ public class ImportHelper {
 
 		@Override
 		protected void onPostExecute(final String warning) {
-			if(Algorithms.isEmpty(warning)) {
+			if (Algorithms.isEmpty(warning)) {
 				showGpxInDetailsActivity(result);
 			} else {
 				Toast.makeText(activity, warning, Toast.LENGTH_LONG).show();
@@ -943,8 +944,8 @@ public class ImportHelper {
 			int nameColor = getResolvedColor(nightMode ? R.color.active_color_primary_dark : R.color.active_color_primary_light);
 			int descrColor = getResolvedColor(nightMode ? R.color.text_color_secondary_dark : R.color.text_color_secondary_light);
 			String descr = getString(R.string.import_gpx_file_description);
-			if(!descr.contains("%s")) {
-				descr = "%s " +descr;
+			if (!descr.contains("%s")) {
+				descr = "%s " + descr;
 			}
 
 			CharSequence txt = AndroidUtils.getStyledString(descr, fileName, new ForegroundColorSpan(descrColor),

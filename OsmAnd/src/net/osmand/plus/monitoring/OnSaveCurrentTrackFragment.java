@@ -184,10 +184,7 @@ public class OnSaveCurrentTrackFragment extends BottomSheetDialogFragment {
 			Toast.makeText(app, R.string.empty_filename, Toast.LENGTH_LONG).show();
 			return null;
 		}
-<<<<<<< HEAD
 
-=======
->>>>>>> f791d91a0ecdd9be8a4e5e7dfa8fd9d6b006b00a
 		return LocalIndexesFragment.renameGpxFile(app, savedFile, newGpxName + ".gpx", false, null);
 	}
 

@@ -425,6 +425,7 @@ public class MapActivity extends OsmandActionBarActivity implements DownloadEven
 						if (dashboardOnMap != null) {
 							dashboardOnMap.updateLocation(true, true, false);
 						}
+						app.getFavorites().lookupAddressAllPersonalPoints();
 						app.getTargetPointsHelper().lookupAddessAll();
 						app.getMapMarkersHelper().lookupAddressAll();
 					}
@@ -1516,7 +1517,6 @@ public class MapActivity extends OsmandActionBarActivity implements DownloadEven
 		});
 		getMapView().refreshMap(true);
 		applyScreenOrientation();
-		getMyApplication().getNotificationHelper().refreshNotifications();
 	}
 
 	public void updateMapSettings() {

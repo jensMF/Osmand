@@ -259,6 +259,29 @@ public class OsmandSettings {
 		}
 	}
 
+	void migrateHomeWorkParkingToFavorites() {
+		FavouritesDbHelper favorites = ctx.getFavorites();
+
+		LatLon homePoint = null;
+		float lat = settingsAPI.getFloat(globalPreferences, "home_point_lat", 0);
+		float lon = settingsAPI.getFloat(globalPreferences, "home_point_lon", 0);
+		if (lat != 0 || lon != 0) {
+			homePoint = new LatLon(lat, lon);
+		}
+		LatLon workPoint = null;
+		lat = settingsAPI.getFloat(globalPreferences, "work_point_lat", 0);
+		lon = settingsAPI.getFloat(globalPreferences, "work_point_lon", 0);
+		if (lat != 0 || lon != 0) {
+			workPoint = new LatLon(lat, lon);
+		}
+		if (homePoint != null) {
+			favorites.setHomePoint(homePoint, null);
+		}
+		if (workPoint != null) {
+			favorites.setWorkPoint(workPoint, null);
+		}
+	}
+
 	public Object getProfilePreferences(ApplicationMode mode) {
 		return settingsAPI.getPreferenceObject(getSharedPreferencesName(mode));
 	}
@@ -437,8 +460,6 @@ public class OsmandSettings {
 
 				OsmandAidlApi aidlApi = ctx.getAidlApi();
 				if (aidlApi != null) {
-					aidlApi.loadConnectedApps();
-					OsmandPlugin.updateActivatedPlugins(ctx);
 					ctx.poiFilters.loadSelectedPoiFilters();
 				}
 
@@ -1007,24 +1028,10 @@ public class OsmandSettings {
 	public static final String NUMBER_OF_FREE_DOWNLOADS_ID = "free_downloads_v3";
 
 	// this value string is synchronized with settings_pref.xml preference name
-	private final OsmandPreference<String> PLUGINS = new StringPreference("enabled_plugins", MapillaryPlugin.ID) {
-		@Override
-		public String getProfileDefaultValue(ApplicationMode mode) {
-			ApplicationMode parent = mode.getParent();
-			if (parent != null && isSetForMode(parent)) {
-				return getModeValue(parent);
-			} else {
-				return super.getProfileDefaultValue(mode);
-			}
-		}
-	}.makeProfile();
+	private final OsmandPreference<String> PLUGINS = new StringPreference("enabled_plugins", MapillaryPlugin.ID).makeGlobal();
 
 	public Set<String> getEnabledPlugins() {
-		return getEnabledPluginsForMode(APPLICATION_MODE.get());
-	}
-
-	public Set<String> getEnabledPluginsForMode(ApplicationMode mode) {
-		String plugs = PLUGINS.getModeValue(mode);
+		String plugs = PLUGINS.get();
 		StringTokenizer toks = new StringTokenizer(plugs, ",");
 		Set<String> res = new LinkedHashSet<String>();
 		while (toks.hasMoreTokens()) {
@@ -1037,11 +1044,7 @@ public class OsmandSettings {
 	}
 
 	public Set<String> getPlugins() {
-		return getPluginsForMode(APPLICATION_MODE.get());
-	}
-
-	public Set<String> getPluginsForMode(ApplicationMode mode) {
-		String plugs = PLUGINS.getModeValue(mode);
+		String plugs = PLUGINS.get();
 		StringTokenizer toks = new StringTokenizer(plugs, ",");
 		Set<String> res = new LinkedHashSet<String>();
 		while (toks.hasMoreTokens()) {
@@ -1051,11 +1054,7 @@ public class OsmandSettings {
 	}
 
 	public boolean enablePlugin(String pluginId, boolean enable) {
-		return enablePluginForMode(pluginId, enable, APPLICATION_MODE.get());
-	}
-
-	public boolean enablePluginForMode(String pluginId, boolean enable, ApplicationMode mode) {
-		Set<String> set = getPluginsForMode(mode);
+		Set<String> set = getPlugins();
 		if (enable) {
 			set.remove("-" + pluginId);
 			set.add(pluginId);
@@ -1071,8 +1070,8 @@ public class OsmandSettings {
 				serialization.append(",");
 			}
 		}
-		if (!serialization.toString().equals(PLUGINS.getModeValue(mode))) {
-			return PLUGINS.setModeValue(mode, serialization.toString());
+		if (!serialization.toString().equals(PLUGINS.get())) {
+			return PLUGINS.set(serialization.toString());
 		}
 		return false;
 	}
@@ -1162,17 +1161,7 @@ public class OsmandSettings {
 	public final CommonPreference<Boolean> SHOW_OSMAND_WELCOME_SCREEN = new BooleanPreference("show_osmand_welcome_screen", true).makeGlobal();
 
 	public final CommonPreference<String> API_NAV_DRAWER_ITEMS_JSON = new StringPreference("api_nav_drawer_items_json", "{}").makeGlobal();
-	public final CommonPreference<String> API_CONNECTED_APPS_JSON = new StringPreference("api_connected_apps_json", "[]") {
-		@Override
-		public String getProfileDefaultValue(ApplicationMode mode) {
-			ApplicationMode parent = mode.getParent();
-			if (parent != null && isSetForMode(parent)) {
-				return getModeValue(parent);
-			} else {
-				return super.getProfileDefaultValue(mode);
-			}
-		}
-	}.makeProfile();
+	public final CommonPreference<String> API_CONNECTED_APPS_JSON = new StringPreference("api_connected_apps_json", "[]").makeGlobal();
 
 	public final CommonPreference<Integer> NUMBER_OF_STARTS_FIRST_XMAS_SHOWN = new IntPreference("number_of_starts_first_xmas_shown", 0).makeGlobal();
 
@@ -1335,12 +1324,7 @@ public class OsmandSettings {
 	//public final OsmandPreference<Integer> COORDINATES_FORMAT = new IntPreference("coordinates_format", PointDescription.FORMAT_DEGREES).makeGlobal();
 
 	public final OsmandPreference<AngularConstants> ANGULAR_UNITS = new EnumIntPreference<AngularConstants>(
-		"angular_measurement", AngularConstants.DEGREES, AngularConstants.values()) {
-		@Override
-		protected AngularConstants getValue(Object prefs, AngularConstants defaultValue) {
-			return super.getValue(prefs, defaultValue);
-		}
-	}.makeProfile().makeGeneral();
+		"angular_measurement", AngularConstants.DEGREES, AngularConstants.values()).makeProfile().makeGeneral();
 
 
 	public final OsmandPreference<SpeedConstants> SPEED_SYSTEM = new EnumIntPreference<SpeedConstants>(
@@ -1607,7 +1591,7 @@ public class OsmandSettings {
 	public static final Integer DAILY_DIRECTORY = 2;
 
 	public final CommonPreference<Boolean> DISABLE_RECORDING_ONCE_APP_KILLED = new BooleanPreference("disable_recording_once_app_killed", false).makeProfile().makeGeneral();
-	
+
 	public final CommonPreference<Boolean> SAVE_HEADING_TO_GPX = new BooleanPreference("save_heading_to_gpx", false).makeProfile().makeGeneral();
 
 	public final CommonPreference<Integer> TRACK_STORAGE_DIRECTORY = new IntPreference("track_storage_directory", 0).makeProfile().makeGeneral();
@@ -2432,13 +2416,6 @@ public class OsmandSettings {
 	public final static String MY_LOC_POINT_LON = "my_loc_point_lon";
 	public final static String MY_LOC_POINT_DESCRIPTION = "my_loc_point_description";
 
-	public final static String HOME_POINT_LAT = "home_point_lat";
-	public final static String HOME_POINT_LON = "home_point_lon";
-	public final static String HOME_POINT_DESCRIPTION = "home_point_description";
-	public final static String WORK_POINT_LAT = "work_point_lat";
-	public final static String WORK_POINT_LON = "work_point_lon";
-	public final static String WORK_POINT_DESCRIPTION = "work_point_description";
-
 	private static final String IMPASSABLE_ROAD_POINTS = "impassable_road_points";
 	private static final String IMPASSABLE_ROADS_DESCRIPTIONS = "impassable_roads_descriptions";
 	private ImpassableRoadsStorage mImpassableRoadsStorage = new ImpassableRoadsStorage();
@@ -2551,44 +2528,6 @@ public class OsmandSettings {
 	public PointDescription getPointNavigateDescriptionBackup() {
 		return PointDescription.deserializeFromString(
 				settingsAPI.getString(globalPreferences, POINT_NAVIGATE_DESCRIPTION_BACKUP, ""), getPointToNavigate());
-	}
-
-	public LatLon getHomePoint() {
-		float lat = settingsAPI.getFloat(globalPreferences, HOME_POINT_LAT, 0);
-		float lon = settingsAPI.getFloat(globalPreferences, HOME_POINT_LON, 0);
-		if (lat == 0 && lon == 0) {
-			return null;
-		}
-		return new LatLon(lat, lon);
-	}
-
-	public PointDescription getHomePointDescription() {
-		return PointDescription.deserializeFromString(
-				settingsAPI.getString(globalPreferences, HOME_POINT_DESCRIPTION, ""), getHomePoint());
-	}
-
-	public LatLon getWorkPoint() {
-		float lat = settingsAPI.getFloat(globalPreferences, WORK_POINT_LAT, 0);
-		float lon = settingsAPI.getFloat(globalPreferences, WORK_POINT_LON, 0);
-		if (lat == 0 && lon == 0) {
-			return null;
-		}
-		return new LatLon(lat, lon);
-	}
-
-	public PointDescription getWorkPointDescription() {
-		return PointDescription.deserializeFromString(
-				settingsAPI.getString(globalPreferences, WORK_POINT_DESCRIPTION, ""), getWorkPoint());
-	}
-
-	public void setHomePoint(double latitude, double longitude, PointDescription p) {
-		settingsAPI.edit(globalPreferences).putFloat(HOME_POINT_LAT, (float) latitude).putFloat(HOME_POINT_LON, (float) longitude).commit();
-		settingsAPI.edit(globalPreferences).putString(HOME_POINT_DESCRIPTION, PointDescription.serializeToString(p)).commit();
-	}
-
-	public void setWorkPoint(double latitude, double longitude, PointDescription p) {
-		settingsAPI.edit(globalPreferences).putFloat(WORK_POINT_LAT, (float) latitude).putFloat(WORK_POINT_LON, (float) longitude).commit();
-		settingsAPI.edit(globalPreferences).putString(WORK_POINT_DESCRIPTION, PointDescription.serializeToString(p)).commit();
 	}
 
 	public LatLon getMyLocationToStart() {

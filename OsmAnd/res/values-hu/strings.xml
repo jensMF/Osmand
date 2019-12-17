@@ -249,14 +249,13 @@ Ehhez {1} MB helyre van szükség.
     <string name="create_poi_link_to_osm_doc">
         <u>Online OSM</u> térképbesorolás képekkel.</string>
     <string name="error_doing_search">Nem sikerült az offline keresés.</string>
-    <string name="search_offline_geo_error">Nem sikerült értelmezni a geo intent által küldött parancsot:\'%s\'.</string>
     <string name="search_osm_offline">Keresés geolokáció alapján</string>
     <string name="system_locale">Rendszer nyelve</string>
     <string name="preferred_locale_descr">Kijelző nyelvének kiválasztása (az OsmAnd újraindítása után lép életbe).</string>
     <string name="preferred_locale">Kijelző nyelve</string>
     <string name="shared_string_next">Következő</string>
     <string name="shared_string_previous">Előző</string>
-    <string name="unit_of_length_descr">Távolság mértékegységének megváltoztatása.</string>
+    <string name="unit_of_length_descr">Távolság mértékegységének módosítása</string>
     <string name="unit_of_length">Hosszmértékegységek</string>
     <string name="si_mi_feet">Mérföld/láb</string>
     <string name="si_mi_yard">Mérföld/yard</string>
@@ -775,7 +774,6 @@ Proporcionális memória %4$s MB (Android korlát %5$s MB, Dalvik %6$s MB).</str
     <string name="map_widget_show_ruler">Vonalzó</string>
     <string name="map_widget_view_direction">Látómező</string>
     <string name="map_widget_transparent">Átlátszó gombok</string>
-    <string name="gps_wakeup_interval">GPS helymeghatározási időköz: %s</string>
     <string name="int_continuosly">Folyamatos</string>
     <string name="layer_map_appearance">Képernyő beállítása</string>
     <string name="show_lanes">Sávok</string>
@@ -1480,7 +1478,7 @@ Hosszúság: %2$s</string>
     <string name="shared_string_deselect">Kijelölés megszüntetése</string>
     <string name="shared_string_deselect_all">Összes kijelölés megszüntetése</string>
     <string name="shared_string_unexpected_error">Váratlan hiba</string>
-    <string name="shared_string_action_template">{0} művelet</string>
+    <string name="shared_string_action_template">{0}. művelet</string>
     <string name="shared_string_collapse">Összecsukás</string>
     <string name="shared_string_video">Videó</string>
     <string name="shared_string_photo">Fénykép</string>
@@ -2016,7 +2014,6 @@ Jelenleg csak {2} MB érhető el.</string>
     <string name="osm_live_subscription_desc">Az előfizetés lehetővé teszi bármely térkép óránkénti, napi vagy heti frissítését, valamint korlátlan számú térkép letöltését globálisan.</string>
     <string name="get_it">Beszerzés</string>
     <string name="osm_live_banner_desc">Szerezz korlátlan térképletöltési és havi egynél gyakoribb térképfrissítési lehetőséget: hetente, naponta vagy óránként.</string>
-    <string name="get_for_month">Beszerzés havonta %1$s-ért</string>
     <string name="osmand_plus_banner_desc">Korlátlan számú térképletöltés és -frissítés, valamint Wikipédia-bővítmény.</string>
     <string name="si_mi_meters">Mérföld/méter</string>
     <string name="search_map">Térképek keresése…</string>
@@ -2504,8 +2501,6 @@ Kérlek adj meg egy teljes kódot</string>
     <string name="shared_string_left">Bal</string>
     <string name="show_number_pad">Számbillentyűzet megjelenítése</string>
     <string name="shared_string_paste">Beillesztés</string>
-    <string name="coordinate_input_accuracy_description">Automatikusan váltson a következő mezőre %1$d tizedes bevitele után.</string>
-    <string name="coordinate_input_accuracy">%1$d tizedesjegy</string>
     <string name="go_to_next_field">Következő mező</string>
     <string name="rename_marker">Jelölő átnevezése</string>
     <string name="tap_on_map_to_hide_interface_descr">Egy koppintás a térképen ki/be kapcsolja a gombokat és a widgeteket.</string>
@@ -2613,7 +2608,6 @@ Kérlek adj meg egy teljes kódot</string>
     <string name="in_app_purchase_desc">Egyszeri fizetés</string>
     <string name="in_app_purchase_desc_ex">Ha egyszer megveszed, mindig elérhető lesz számodra.</string>
     <string name="purchase_unlim_title">Vásárlás - %1$s</string>
-    <string name="purchase_subscription_title">Előfizetés - %1$s</string>
     <string name="wikivoyage_offline">Wikivoyage offline</string>
     <string name="unlimited_downloads">Korlátlan letöltés</string>
     <string name="wikipedia_offline">Wikipédia offline</string>
@@ -3140,7 +3134,7 @@ Kérlek adj meg egy teljes kódot</string>
     <string name="turn_screen_on_info">Térkép megjelenítése a lezárási képernyő felett navigáció közben.</string>
     <string name="route_parameters_info">Útvonaltervezési beállítások erre a profilra: %1$s.</string>
     <string name="wake_time">Felébresztési idő</string>
-    <string name="units_and_formats">Mértékegységek és formátumok</string>
+    <string name="units_and_formats">Mértékegységek &amp; formátumok</string>
     <string name="appearance">Megjelenés</string>
     <string name="map_look_descr">Térkép megjelenés</string>
     <string name="list_of_installed_plugins">Telepített bővítmények</string>
@@ -3225,7 +3219,6 @@ Kérlek adj meg egy teljes kódot</string>
     <string name="file_imported_successfully">%1$s sikeresen importálva.</string>
     <string name="app_mode_utv">Egymás mellett</string>
     <string name="rendering_attr_piste_difficulty_aerialway_name"/>
-    <string name="swap_start_and_destination">Kiindulási és célpont felcserélése</string>
     <string name="switch_profile">Profil váltás</string>
     <string name="application_profile_changed">Alkalmazás profi módosítva erre: %s</string>
     <string name="change_data_storage_full_description">Áthelyezed az OsmAnd fájlokat az új helyre\?
@@ -3241,4 +3234,20 @@ Kérlek adj meg egy teljes kódot</string>
     <string name="dialogs_and_notifications_title">Párbeszédablakok és értesítések</string>
     <string name="dialogs_and_notifications_descr">OsmAnd használata közben megjelenő felugró üzenetek, párbeszédablakok és értesítések beállításai.</string>
     <string name="suggested_maps">Javasolt térképek</string>
+    <string name="add_new_profile_q">Hozzáadja az új \'%1$s\' profilt\?</string>
+    <string name="distance_and_address">%1$s • %2$s</string>
+    <string name="street_city">%1$s, %2$s</string>
+    <string name="personal_category_name">Személyes</string>
+    <string name="shared_string_downloading_formatted">%s letöltése</string>
+    <string name="new_route_calculated_dist_dbg">Útvonal: távolság %s, menetidő %s
+\nSzámítás: %.1f mp, %d útszakasz, %d csempe</string>
+    <string name="rendering_attr_piste_type_downhill_name">Lesikló</string>
+    <string name="routeInfo_piste_type_name">Sípálya típusa</string>
+    <string name="rendering_attr_piste_difficulty_intermediate_name">Haladó</string>
+    <string name="rendering_attr_piste_difficulty_advanced_name">Tapasztalt</string>
+    <string name="rendering_attr_piste_difficulty_expert_name">Profi</string>
+    <string name="rendering_attr_piste_difficulty_freeride_name">Pálya nélküli</string>
+    <string name="rendering_attr_piste_difficulty_extreme_name">Extrém</string>
+    <string name="rendering_attr_piste_difficulty_undefined_name">Meghatározatlan</string>
+    <string name="routeInfo_piste_difficulty_name">Sípálya nehézsége</string>
 </resources>

@@ -21,7 +21,7 @@ public class GPXDatabase {
     public final static Log LOG = PlatformUtil.getLog(GPXDatabase.class);
 
     private static final String DB_NAME = "gpx_database";
-    private static final int DB_VERSION = 11;
+    private static final int DB_VERSION = 10;
     private static final String GPX_TABLE_NAME = "gpxTable";
     private static final String GPX_COL_NAME = "fileName";
     private static final String GPX_COL_DIR = "fileDir";
@@ -241,6 +241,7 @@ public class GPXDatabase {
         // init database
         SQLiteConnection db = openConnection(false);
         if (db != null) {
+            cleanUpDatabase(db);
             db.close();
         }
     }
@@ -263,7 +264,6 @@ public class GPXDatabase {
                 onUpgrade(conn, version, DB_VERSION);
             }
         }
-        //cleanUpDatabase(conn);
         return conn;
     }
 
@@ -385,57 +385,7 @@ public class GPXDatabase {
                     " SET " + GPX_COL_JOIN_SEGMENTS + " = ? " +
                     "WHERE " + GPX_COL_JOIN_SEGMENTS + " IS NULL", new Object[]{0});
         }
-        if (oldVersion < 11) {
-            File lookupDir = context.getAppPath(IndexConstants.GPX_INDEX_DIR);
-            List<File> allFiles = allFilesInDir(lookupDir);
-            List<GpxDataItem> toInsert = new ArrayList<>();
-            for (File file : allFiles) {
-                SQLiteCursor query = db.rawQuery(GPX_TABLE_SELECT + " WHERE " + GPX_COL_NAME + " = ? AND " +
-                        GPX_COL_DIR + " = ?", new String[]{file.getName(), oldGetFileDir(file)});
-                if (query != null) {
-                    try {
-                        if (query.moveToFirst()) {
-                            GpxDataItem item = readItem(query);
-                            item.file = new File(getFileDir(file), getFileName(file));
-                            toInsert.add(item);
-                        }
-                    } finally {
-                        query.close();
-                    }
-                }
-            }
-            db.execSQL("DELETE FROM " + GPX_TABLE_NAME);
-            int i = 0;
-            for (GpxDataItem item : toInsert) {
-                if (item != null) {
-                    insert(item, db);
-                    i++;
-                }
-            }
-        }
         db.execSQL("CREATE INDEX IF NOT EXISTS " + GPX_INDEX_NAME_DIR + " ON " + GPX_TABLE_NAME + " (" + GPX_COL_NAME + ", " + GPX_COL_DIR + ");");
-    }
-
-    private List<File> allFilesInDir(File lookupDir) {
-        File[] lookupArray = lookupDir.listFiles();
-        List<File> dirList = new ArrayList<>();
-        if (lookupArray != null) {
-            for (File toCheck : lookupArray) {
-                if (toCheck.isDirectory()) {
-                    dirList.addAll(allFilesInDir(toCheck));
-                }
-                else {
-                    dirList.add(toCheck);
-                }
-            }
-        }
-        return dirList;
-    }
-
-    private String oldGetFileDir(File itemFile) {
-        return itemFile.getParentFile() == null ||
-                itemFile.getParentFile().equals(context.getAppPath(IndexConstants.GPX_INDEX_DIR)) ?
-                "" : itemFile.getParentFile().getName();
     }
 
     private boolean updateLastModifiedTime(GpxDataItem item) {
@@ -596,7 +546,7 @@ public class GPXDatabase {
 
     private String getFileDir(File itemFile) {
         String fileDir = itemFile.getParentFile() == null ? ""
-                : new File(itemFile.getPath().replace(context.getAppPath(IndexConstants.GPX_INDEX_DIR).getPath() + "/", "")).getParent();
+                : itemFile.getParentFile().getAbsolutePath().replace(context.getAppPath(IndexConstants.GPX_INDEX_DIR).getPath() + "/", "");
         return fileDir != null ? fileDir : "";
     }
 

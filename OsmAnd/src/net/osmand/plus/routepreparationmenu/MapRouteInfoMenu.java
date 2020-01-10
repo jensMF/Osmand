@@ -19,7 +19,6 @@ import android.support.transition.Transition;
 import android.support.transition.TransitionListenerAdapter;
 import android.support.transition.TransitionManager;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.view.View;
@@ -71,7 +70,6 @@ import net.osmand.plus.mapcontextmenu.other.TrackDetailsMenuFragment;
 import net.osmand.plus.mapmarkers.MapMarkerSelectionFragment;
 import net.osmand.plus.poi.PoiUIFilter;
 import net.osmand.plus.profiles.AppModesBottomSheetDialogFragment;
-import net.osmand.plus.profiles.AppModesBottomSheetDialogFragment.UpdateMapRouteMenuListener;
 import net.osmand.plus.profiles.ConfigureAppModesBottomSheetDialogFragment;
 import net.osmand.plus.routepreparationmenu.RoutingOptionsHelper.AvoidPTTypesRoutingParameter;
 import net.osmand.plus.routepreparationmenu.RoutingOptionsHelper.AvoidRoadsRoutingParameter;
@@ -277,10 +275,10 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 						targets.navigateToPoint(latlon, true, targets.getIntermediatePoints().size());
 						break;
 					case HOME:
-						favorites.setHomePoint(latlon, null);
+						favorites.setSpecialPoint(latlon, FavouritePoint.SpecialPointType.HOME, null);
 						break;
 					case WORK:
-						favorites.setWorkPoint(latlon, null);
+						favorites.setSpecialPoint(latlon, FavouritePoint.SpecialPointType.WORK, null);
 						break;
 				}
 				if (selectFromMapWaypoints) {
@@ -798,14 +796,14 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 	private void showProfileBottomSheetDialog() {
 		final AppModesBottomSheetDialogFragment fragment = new ConfigureAppModesBottomSheetDialogFragment();
 		fragment.setUsedOnMap(true);
-		fragment.setUpdateMapRouteMenuListener(new UpdateMapRouteMenuListener() {
+		fragment.setUpdateMapRouteMenuListener(new AppModesBottomSheetDialogFragment.UpdateMapRouteMenuListener() {
 			@Override
 			public void updateAppModeMenu() {
 				updateApplicationModes();
 			}
 		});
 		getMapActivity().getSupportFragmentManager().beginTransaction()
-			.add(fragment, ConfigureAppModesBottomSheetDialogFragment.TAG).commitAllowingStateLoss();
+				.add(fragment, ConfigureAppModesBottomSheetDialogFragment.TAG).commitAllowingStateLoss();
 	}
 
 	private void updateApplicationMode(ApplicationMode mode, ApplicationMode next) {
@@ -1804,10 +1802,10 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 					targets.navigateToPoint(l, true, targets.getIntermediatePoints().size(), pd);
 					break;
 				case HOME:
-					favorites.setHomePoint(l, name);
+					favorites.setSpecialPoint(l, FavouritePoint.SpecialPointType.HOME, name);
 					break;
 				case WORK:
-					favorites.setWorkPoint(l, name);
+					favorites.setSpecialPoint(l, FavouritePoint.SpecialPointType.WORK, name);
 					break;
 			}
 			updateMenu();
@@ -1864,10 +1862,10 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 						targets.navigateToPoint(point, true, targets.getIntermediatePoints().size(), m.getPointDescription(mapActivity));
 						break;
 					case HOME:
-						favorites.setHomePoint(point, null);
+						favorites.setSpecialPoint(point, FavouritePoint.SpecialPointType.HOME, null);
 						break;
 					case WORK:
-						favorites.setWorkPoint(point, null);
+						favorites.setSpecialPoint(point, FavouritePoint.SpecialPointType.WORK, null);
 						break;
 				}
 				updateMenu();
@@ -2247,7 +2245,7 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 	}
 
 	@Override
-	public void onFavoriteAddressResolved(@NonNull FavouritePoint favouritePoint) {
+	public void onFavoriteDataUpdated(@NonNull FavouritePoint favouritePoint) {
 		updateMenu();
 	}
 

@@ -1,7 +1,6 @@
 package net.osmand.plus.activities;
 
 
-import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -20,10 +19,6 @@ import android.preference.Preference.OnPreferenceChangeListener;
 import android.preference.Preference.OnPreferenceClickListener;
 import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat.OnRequestPermissionsResultCallback;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.widget.AppCompatCheckedTextView;
 import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,6 +28,11 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.AppCompatCheckedTextView;
+import androidx.core.app.ActivityCompat.OnRequestPermissionsResultCallback;
 
 import net.osmand.IProgress;
 import net.osmand.IndexConstants;
@@ -91,7 +91,7 @@ public class SettingsGeneralActivity extends SettingsBaseActivity implements OnR
 		ApplicationMode[] appModes = ApplicationMode.values(app).toArray(new ApplicationMode[0]);
 		entries = new String[appModes.length];
 		for (int i = 0; i < entries.length; i++) {
-			entries[i] = appModes[i].toHumanString(app);
+			entries[i] = appModes[i].toHumanString();
 		}
 		registerListPreference(settings.DEFAULT_APPLICATION_MODE, screen, entries, appModes);
 
@@ -545,7 +545,7 @@ public class SettingsGeneralActivity extends SettingsBaseActivity implements OnR
 		super.updateAllSettings();
 		updateApplicationDirTextAndSummary();
 		applicationModePreference.setTitle(getString(R.string.settings_preset) + "  ["
-				+ settings.APPLICATION_MODE.get().toHumanString(getMyApplication()) + "]");
+				+ settings.APPLICATION_MODE.get().toHumanString() + "]");
 		drivingRegionPreference.setTitle(getString(R.string.driving_region) + "  ["
 				+ getString(settings.DRIVING_REGION_AUTOMATIC.get() ? R.string.driving_region_automatic : settings.DRIVING_REGION.get().name) + "]");
 	}

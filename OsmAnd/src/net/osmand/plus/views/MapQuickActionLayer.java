@@ -9,16 +9,17 @@ import android.graphics.Canvas;
 import android.graphics.PointF;
 import android.os.Build;
 import android.os.Vibrator;
-import android.support.annotation.DimenRes;
-import android.support.v4.app.Fragment;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.util.Pair;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewAnimationUtils;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+
+import androidx.annotation.DimenRes;
+import androidx.core.content.ContextCompat;
+import androidx.core.util.Pair;
+import androidx.fragment.app.Fragment;
 
 import com.getkeepsafe.taptargetview.TapTarget;
 import com.getkeepsafe.taptargetview.TapTargetView;
@@ -81,7 +82,7 @@ public class MapQuickActionLayer extends OsmandMapLayer implements QuickActionRe
         this.contextMenuLayer = contextMenuLayer;
         app = activity.getMyApplication();
         settings = activity.getMyApplication().getSettings();
-        quickActionRegistry = activity.getMapLayers().getQuickActionRegistry();
+        quickActionRegistry = app.getQuickActionRegistry();
 		measurementToolLayer = mapActivity.getMapLayers().getMeasurementToolLayer();
         mapMarkersLayer = mapActivity.getMapLayers().getMapMarkersLayer();
     }
@@ -281,7 +282,7 @@ public class MapQuickActionLayer extends OsmandMapLayer implements QuickActionRe
     }
 
 	private void updateQuickActionButton(boolean widgetVisible) {
-		quickActionButton.setImageDrawable(app.getUIUtilities().getIcon(
+		quickActionButton.setImageDrawable(app.getUIUtilities().getMapIcon(
 				!widgetVisible ? R.drawable.map_quick_action : R.drawable.map_action_cancel, !nightMode));
 		quickActionButton.setBackgroundResource(
 				nightMode ? R.drawable.btn_circle_night : R.drawable.btn_circle_trans);

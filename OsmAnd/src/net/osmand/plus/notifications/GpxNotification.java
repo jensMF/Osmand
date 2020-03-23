@@ -5,9 +5,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationCompat.BigTextStyle;
-import android.support.v4.app.NotificationCompat.Builder;
+
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationCompat.BigTextStyle;
+import androidx.core.app.NotificationCompat.Builder;
 
 import net.osmand.plus.NavigationService;
 import net.osmand.plus.OsmAndFormatter;
@@ -122,7 +123,7 @@ public class GpxNotification extends OsmandNotification {
 		boolean isGpxRecording = app.getSavingTrackHelper().getIsRecording();
 		float recordedDistance = app.getSavingTrackHelper().getDistance();
 		ongoing = true;
-        lastBuiltNoData = false;
+		lastBuiltNoData = false;
 		if (isGpxRecording) {
 			color = app.getResources().getColor(R.color.osmand_orange);
 			notificationTitle = app.getString(R.string.shared_string_trip) + " • "

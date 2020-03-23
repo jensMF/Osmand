@@ -1,8 +1,6 @@
 package net.osmand.router;
 
-import net.osmand.Location;
 import net.osmand.PlatformUtil;
-import net.osmand.binary.RouteDataObject;
 import net.osmand.router.GeneralRouter.GeneralRouterProfile;
 import net.osmand.router.GeneralRouter.RouteAttributeContext;
 import net.osmand.router.GeneralRouter.RouteDataObjectAttribute;
@@ -13,9 +11,10 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 
 public class RoutingConfiguration {
@@ -55,7 +54,15 @@ public class RoutingConfiguration {
 		private String defaultRouter = "";
 		private Map<String, GeneralRouter> routers = new LinkedHashMap<>();
 		private Map<String, String> attributes = new LinkedHashMap<>();
-		private HashMap<Long, Location> impassableRoadLocations = new HashMap<>();
+		private Set<Long> impassableRoadLocations = new HashSet<>();
+
+		public Builder() {
+
+		}
+
+		public Builder(Map<String, String> defaultAttributes) {
+			attributes.putAll(defaultAttributes);
+		}
 
 		// Example
 //		{
@@ -87,7 +94,7 @@ public class RoutingConfiguration {
 			i.initialDirection = direction;
 			i.recalculateDistance = parseSilentFloat(getAttribute(i.router, "recalculateDistanceHelp"), i.recalculateDistance) ;
 			i.heuristicCoefficient = parseSilentFloat(getAttribute(i.router, "heuristicCoefficient"), i.heuristicCoefficient);
-			i.router.addImpassableRoads(impassableRoadLocations.keySet());
+			i.router.addImpassableRoads(new HashSet<>(impassableRoadLocations));
 			i.ZOOM_TO_LOAD_TILES = parseSilentInt(getAttribute(i.router, "zoomToLoadTiles"), i.ZOOM_TO_LOAD_TILES);
 			int desirable = parseSilentInt(getAttribute(i.router, "memoryLimitInMB"), 0);
 			if(desirable != 0) {
@@ -102,20 +109,19 @@ public class RoutingConfiguration {
 //			i.planRoadDirection = 1;
 			return i;
 		}
-		
-		public Map<Long, Location> getImpassableRoadLocations() {
+
+		public Set<Long> getImpassableRoadLocations() {
 			return impassableRoadLocations;
 		}
 		
-		public boolean addImpassableRoad(RouteDataObject route, Location location) {
-			if (!impassableRoadLocations.containsKey(route.id)){
-				impassableRoadLocations.put(route.id, location);
-				return true;
-			}
-			return false;
+		public boolean addImpassableRoad(long routeId) {
+			return impassableRoadLocations.add(routeId);
 		}
-		
-		
+
+		public Map<String, String> getAttributes() {
+			return attributes;
+		}
+
 		private String getAttribute(VehicleRouter router, String propertyName) {
 			if (router.containsAttribute(propertyName)) {
 				return router.getAttribute(propertyName);
@@ -148,8 +154,8 @@ public class RoutingConfiguration {
 			return routers;
 		}
 
-		public void removeImpassableRoad(RouteDataObject obj) {
-			impassableRoadLocations.remove(obj.id);
+		public void removeImpassableRoad(long routeId) {
+			impassableRoadLocations.remove(routeId);
 		}
 	}
 
@@ -230,9 +236,9 @@ public class RoutingConfiguration {
 		String id = parser.getAttributeValue("", "id");
 		String type = parser.getAttributeValue("", "type");
 		boolean defaultValue = Boolean.parseBoolean(parser.getAttributeValue("", "default"));
-		if (type.equalsIgnoreCase("boolean")) {
+		if ("boolean".equalsIgnoreCase(type)) {
 			currentRouter.registerBooleanParameter(id, Algorithms.isEmpty(group) ? null : group, name, description, defaultValue);
-		} else if(type.equalsIgnoreCase("numeric")) {
+		} else if ("numeric".equalsIgnoreCase(type)) {
 			String values = parser.getAttributeValue("", "values");
 			String valueDescriptions = parser.getAttributeValue("", "valueDescriptions");
 			String[] strValues = values.split(",");
@@ -286,7 +292,7 @@ public class RoutingConfiguration {
 				for (int i = 0; i < stack.size(); i++) {
 					addSubclause(stack.get(i), ctx);
 				}
-			} else if(stack.size() > 0 && stack.peek().tagName.equals("select")) {
+			} else if (stack.size() > 0 && "select".equals(stack.peek().tagName)) {
 				addSubclause(rr, ctx);
 			}
 			stack.push(rr);
@@ -306,11 +312,11 @@ public class RoutingConfiguration {
 		if (!Algorithms.isEmpty(rr.t)) {
 			ctx.getLastRule().registerAndTagValueCondition(rr.t, Algorithms.isEmpty(rr.v) ? null : rr.v, not);
 		}
-		if (rr.tagName.equals("gt")) {
+		if ("gt".equals(rr.tagName)) {
 			ctx.getLastRule().registerGreatCondition(rr.value1, rr.value2, rr.type);
-		} else if (rr.tagName.equals("le")) {
+		} else if ("le".equals(rr.tagName)) {
 			ctx.getLastRule().registerLessCondition(rr.value1, rr.value2, rr.type);
-		} else if (rr.tagName.equals("eq")) {
+		} else if ("eq".equals(rr.tagName)) {
 			ctx.getLastRule().registerEqualCondition(rr.value1, rr.value2, rr.type);
 		}
 	}

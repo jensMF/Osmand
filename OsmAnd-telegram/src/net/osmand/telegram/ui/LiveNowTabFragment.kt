@@ -3,11 +3,6 @@ package net.osmand.telegram.ui
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
-import android.support.v4.app.Fragment
-import android.support.v4.widget.SwipeRefreshLayout
-import android.support.v7.widget.LinearLayoutManager
-import android.support.v7.widget.ListPopupWindow
-import android.support.v7.widget.RecyclerView
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -17,6 +12,10 @@ import android.widget.ArrayAdapter
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.widget.ListPopupWindow
+import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import net.osmand.Location
 import net.osmand.data.LatLon
 import net.osmand.telegram.R
@@ -60,8 +59,6 @@ class LiveNowTabFragment : Fragment(), TelegramListener, TelegramIncomingMessage
 	private var heading: Float? = null
 	private var locationUiUpdateAllowed: Boolean = true
 
-	private var lastTelegramUpdateStr = ""
-
 	override fun onCreateView(
 		inflater: LayoutInflater,
 		container: ViewGroup?,
@@ -71,20 +68,19 @@ class LiveNowTabFragment : Fragment(), TelegramListener, TelegramIncomingMessage
 		val appBarLayout = mainView.findViewById<View>(R.id.app_bar_layout)
 
 		lastTelegramUpdateTime = mainView.findViewById<TextView>(R.id.last_telegram_update_time)
-		lastTelegramUpdateStr = getString(R.string.last_update_from_telegram) + ": "
 
 		AndroidUtils.addStatusBarPadding19v(context!!, appBarLayout)
 		adapter = LiveNowListAdapter()
-		mainView.findViewById<RecyclerView>(R.id.recycler_view).apply {
+		mainView.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recycler_view).apply {
 			layoutManager = LinearLayoutManager(context)
 			adapter = this@LiveNowTabFragment.adapter
-			addOnScrollListener(object : RecyclerView.OnScrollListener() {
-				override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+			addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+				override fun onScrollStateChanged(recyclerView: androidx.recyclerview.widget.RecyclerView, newState: Int) {
 					super.onScrollStateChanged(recyclerView, newState)
-					locationUiUpdateAllowed = newState == RecyclerView.SCROLL_STATE_IDLE
+					locationUiUpdateAllowed = newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_IDLE
 					when (newState) {
-						RecyclerView.SCROLL_STATE_DRAGGING -> animateOpenOsmAndBtn(false)
-						RecyclerView.SCROLL_STATE_IDLE -> animateOpenOsmAndBtn(true)
+						androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_DRAGGING -> animateOpenOsmAndBtn(false)
+						androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_IDLE -> animateOpenOsmAndBtn(true)
 					}
 				}
 			})
@@ -101,7 +97,7 @@ class LiveNowTabFragment : Fragment(), TelegramListener, TelegramIncomingMessage
 			}
 		}
 
-		mainView.findViewById<SwipeRefreshLayout>(R.id.swipe_refresh).apply {
+		mainView.findViewById<androidx.swiperefreshlayout.widget.SwipeRefreshLayout>(R.id.swipe_refresh).apply {
 			setOnRefreshListener {
 				app.shareLocationHelper.checkNetworkType()
 				app.telegramHelper.scanChatsHistory()
@@ -302,7 +298,12 @@ class LiveNowTabFragment : Fragment(), TelegramListener, TelegramIncomingMessage
 
 		if (res.isEmpty()) {
 			lastTelegramUpdateTime.visibility = View.VISIBLE
-			lastTelegramUpdateTime.text = OsmandFormatter.getListItemLiveTimeDescr(app, telegramHelper.lastTelegramUpdateTime, lastTelegramUpdateStr)
+			lastTelegramUpdateTime.text = OsmandFormatter.getListItemLiveTimeDescr(
+				app,
+				telegramHelper.lastTelegramUpdateTime,
+				R.string.last_update_from_telegram_date,
+				R.string.last_update_from_telegram_duration
+			)
 		} else {
 			lastTelegramUpdateTime.visibility = View.GONE
 		}
@@ -396,9 +397,7 @@ class LiveNowTabFragment : Fragment(), TelegramListener, TelegramIncomingMessage
 		)
 	}
 
-	inner class LiveNowListAdapter : RecyclerView.Adapter<BaseViewHolder>() {
-
-		private var lastResponseStr = getString(R.string.last_response) + ": "
+	inner class LiveNowListAdapter : androidx.recyclerview.widget.RecyclerView.Adapter<BaseViewHolder>() {
 
 		private val menuList =
 			listOf(getString(R.string.shared_string_off), getString(R.string.shared_string_all))
@@ -478,7 +477,12 @@ class LiveNowTabFragment : Fragment(), TelegramListener, TelegramIncomingMessage
 
 			if (lastItem) {
 				holder.lastTelegramUpdateTime?.visibility = View.VISIBLE
-				holder.lastTelegramUpdateTime?.text = OsmandFormatter.getListItemLiveTimeDescr(app, telegramHelper.lastTelegramUpdateTime, lastTelegramUpdateStr)
+				holder.lastTelegramUpdateTime?.text = OsmandFormatter.getListItemLiveTimeDescr(
+					app,
+					telegramHelper.lastTelegramUpdateTime,
+					R.string.last_update_from_telegram_date,
+					R.string.last_update_from_telegram_duration
+				)
 			} else {
 				holder.lastTelegramUpdateTime?.visibility = View.GONE
 			}
@@ -509,7 +513,10 @@ class LiveNowTabFragment : Fragment(), TelegramListener, TelegramIncomingMessage
 				holder.bottomDivider?.visibility = if (nextIsLocation) View.VISIBLE else View.GONE
 				holder.topDivider?.visibility = if (!sortByGroup && position != 0) View.GONE else View.VISIBLE
 			} else if (item is LocationItem && holder is ContactViewHolder) {
-				holder.description?.text =  OsmandFormatter.getListItemLiveTimeDescr(app, item.lastUpdated, lastResponseStr)
+				holder.description?.text = OsmandFormatter.getListItemLiveTimeDescr(
+					app, item.lastUpdated, R.string.last_response_date,
+					R.string.last_response_duration
+				)
 				holder.topShadowDivider?.visibility = View.GONE
 			}
 		}
@@ -517,15 +524,17 @@ class LiveNowTabFragment : Fragment(), TelegramListener, TelegramIncomingMessage
 		override fun getItemCount() = items.size
 
 		private fun getChatItemDescription(item: ChatItem): String {
+			val dateRes = R.string.last_response_date
+			val durationRes = R.string.last_response_duration
 			return when {
 				item.chatWithBot -> {
 					if (settings.liveNowSortType.isSortByGroup()) {
 						getString(R.string.shared_string_bot)
 					} else {
-						OsmandFormatter.getListItemLiveTimeDescr(app, item.lastUpdated, lastResponseStr)
+						OsmandFormatter.getListItemLiveTimeDescr(app, item.lastUpdated, dateRes, durationRes)
 					}
 				}
-				item.privateChat -> OsmandFormatter.getListItemLiveTimeDescr(app, item.lastUpdated, lastResponseStr)
+				item.privateChat -> OsmandFormatter.getListItemLiveTimeDescr(app, item.lastUpdated, dateRes, durationRes)
 				else -> {
 					if (settings.liveNowSortType.isSortByGroup()) {
 						val live = getString(R.string.shared_string_live)
@@ -533,7 +542,7 @@ class LiveNowTabFragment : Fragment(), TelegramListener, TelegramIncomingMessage
 						val liveStr = "$live ${item.liveMembersCount}"
 						if (item.membersCount > 0) "$liveStr • $all ${item.membersCount}" else liveStr
 					} else {
-						OsmandFormatter.getListItemLiveTimeDescr(app, item.lastUpdated, lastResponseStr)
+						OsmandFormatter.getListItemLiveTimeDescr(app, item.lastUpdated, dateRes, durationRes)
 					}
 				}
 			}
@@ -593,7 +602,7 @@ class LiveNowTabFragment : Fragment(), TelegramListener, TelegramIncomingMessage
 			}
 		}
 
-		abstract inner class BaseViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+		abstract inner class BaseViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
 			val icon: ImageView? = view.findViewById(R.id.icon)
 			val title: TextView? = view.findViewById(R.id.title)
 			val locationViewContainer: View? = view.findViewById(R.id.location_view_container)

@@ -1,8 +1,10 @@
 package net.osmand.plus.render;
 
 import android.content.Context;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import net.osmand.IProgress;
 import net.osmand.IndexConstants;
 import net.osmand.PlatformUtil;
@@ -239,23 +241,7 @@ public class RendererRegistry {
 	}
 	
 	public void initRenderers(IProgress progress) {
-		File file = app.getAppPath(IndexConstants.RENDERERS_DIR);
-		file.mkdirs();
-		Map<String, File> externalRenderers = new LinkedHashMap<String, File>(); 
-		if (file.exists() && file.canRead()) {
-			File[] lf = file.listFiles();
-			if (lf != null) {
-				for (File f : lf) {
-					if (f != null && f.getName().endsWith(IndexConstants.RENDERER_INDEX_EXT)) {
-						if(!internalRenderers.containsValue(f.getName())) {
-							String name = f.getName().substring(0, f.getName().length() - IndexConstants.RENDERER_INDEX_EXT.length());
-							externalRenderers.put(name.replace('_', ' ').replace('-', ' '), f);
-						}
-					}
-				}
-			}
-		}
-		this.externalRenderers = externalRenderers;
+		updateExternalRenderers();
 		String r = app.getSettings().RENDERER.get();
 		if(r != null){
 			RenderingRulesStorage obj = getRenderer(r);
@@ -263,6 +249,26 @@ public class RendererRegistry {
 				setCurrentSelectedRender(obj);
 			}
 		}
+	}
+
+	public void updateExternalRenderers() {
+		File file = app.getAppPath(IndexConstants.RENDERERS_DIR);
+		file.mkdirs();
+		Map<String, File> externalRenderers = new LinkedHashMap<String, File>();
+		if (file.exists() && file.canRead()) {
+			File[] lf = file.listFiles();
+			if (lf != null) {
+				for (File f : lf) {
+					if (f != null && f.getName().endsWith(IndexConstants.ROUTING_AND_RENDERING_FILE_EXT)) {
+						if(!internalRenderers.containsValue(f.getName())) {
+							String name = f.getName().substring(0, f.getName().length() - IndexConstants.ROUTING_AND_RENDERING_FILE_EXT.length());
+							externalRenderers.put(name.replace('_', ' ').replace('-', ' '), f);
+						}
+					}
+				}
+			}
+		}
+		this.externalRenderers = externalRenderers;
 	}
 	
 	public Collection<String> getRendererNames(){
@@ -342,5 +348,9 @@ public class RendererRegistry {
 			}
 		}
 		return null;
+	}
+
+	public Map<String, File> getExternalRenderers() {
+		return externalRenderers;
 	}
 }

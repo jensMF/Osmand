@@ -1,7 +1,8 @@
 package net.osmand.plus.mapcontextmenu.controllers;
 
 import android.graphics.drawable.Drawable;
-import android.support.annotation.NonNull;
+
+import androidx.annotation.NonNull;
 
 import net.osmand.data.PointDescription;
 import net.osmand.plus.OsmandApplication;
@@ -33,7 +34,7 @@ public class PointDescriptionMenuController extends MenuController {
 					MapActivity activity = getMapActivity();
 					if (activity != null) {
 						AvoidSpecificRoads roads = activity.getMyApplication().getAvoidSpecificRoads();
-						roads.addImpassableRoad(activity, getLatLon(), false, false);
+						roads.addImpassableRoad(activity, getLatLon(), false, false, null);
 					}
 				}
 			};

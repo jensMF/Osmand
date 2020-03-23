@@ -16,9 +16,6 @@ import android.preference.Preference;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
-import android.support.annotation.NonNull;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -28,6 +25,10 @@ import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 
 import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.ContextMenuAdapter;
@@ -314,7 +315,7 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 			cat.addPreference(fastRoute);
 		} else {
 			ApplicationMode am = settings.getApplicationMode();
-			GeneralRouter router = getRouter(getMyApplication().getRoutingConfig(), am);
+			GeneralRouter router = settings.getContext().getRouter(am);
 			clearParameters();
 			if (router != null) {
 				GeneralRouterProfile routerProfile = router.getProfile();
@@ -430,16 +431,7 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 		reliefFactorParameters.clear();
 	}
 
-
-	public static GeneralRouter getRouter(net.osmand.router.RoutingConfiguration.Builder builder, ApplicationMode am) {
-		GeneralRouter router = builder.getRouter(am.getRoutingProfile());
-		if(router == null && am.getParent() != null) {
-			router = builder.getRouter(am.getParent().getStringKey());
-		}
-		return router;
-	}
-
-	public void updateAllSettings() {	
+	public void updateAllSettings() {
 		prepareRoutingPrefs(getPreferenceScreen());
 		reloadVoiceListPreference(getPreferenceScreen());
 		super.updateAllSettings();
@@ -728,7 +720,7 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 		final OsmandApplication app = (OsmandApplication) activity.getApplication();
 		final OsmandSettings settings = app.getSettings();
 
-		GeneralRouter router = getRouter(app.getRoutingConfig(), mode);
+		GeneralRouter router = app.getRouter(mode);
 		SpeedConstants units = settings.SPEED_SYSTEM.getModeValue(mode);
 		String speedUnits = units.toShortString(activity);
 		final float[] ratio = new float[1];
@@ -755,8 +747,8 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 				break;
 		}
 
-		float settingsMinSpeed = settings.MIN_SPEED.getModeValue(mode);
-		float settingsMaxSpeed = settings.MAX_SPEED.getModeValue(mode);
+		float settingsMinSpeed = mode.getMinSpeed();
+		float settingsMaxSpeed = mode.getMaxSpeed();
 
 		final int[] defaultValue = {Math.round(mode.getDefaultSpeed() * ratio[0])};
 		final int[] minValue = new int[1];
@@ -783,10 +775,10 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 		builder.setPositiveButton(R.string.shared_string_ok, new OnClickListener() {
 			@Override
 			public void onClick(DialogInterface dialog, int which) {
-				mode.setDefaultSpeed(app, defaultValue[0] / ratio[0]);
+				mode.setDefaultSpeed(defaultValue[0] / ratio[0]);
 				if (!defaultSpeedOnly) {
-					settings.MIN_SPEED.setModeValue(mode, minValue[0] / ratio[0]);
-					settings.MAX_SPEED.setModeValue(mode, maxValue[0] / ratio[0]);
+					mode.setMinSpeed(minValue[0] / ratio[0]);
+					mode.setMaxSpeed(maxValue[0] / ratio[0]);
 				}
 				RoutingHelper routingHelper = app.getRoutingHelper();
 				if (mode.equals(routingHelper.getAppMode()) && (routingHelper.isRouteCalculated() || routingHelper.isRouteBeingCalculated())) {
@@ -798,10 +790,10 @@ public class SettingsNavigationActivity extends SettingsBaseActivity {
 		builder.setNeutralButton(R.string.shared_string_revert, new OnClickListener() {
 			@Override
 			public void onClick(DialogInterface dialog, int which) {
-				mode.resetDefaultSpeed(app);
+				mode.resetDefaultSpeed();
 				if (!defaultSpeedOnly) {
-					settings.MIN_SPEED.setModeValue(mode,0f);
-					settings.MAX_SPEED.setModeValue(mode,0f);
+					mode.setMinSpeed(0f);
+					mode.setMaxSpeed(0f);
 				}
 				RoutingHelper routingHelper = app.getRoutingHelper();
 				if (mode.equals(routingHelper.getAppMode()) && (routingHelper.isRouteCalculated() || routingHelper.isRouteBeingCalculated())) {

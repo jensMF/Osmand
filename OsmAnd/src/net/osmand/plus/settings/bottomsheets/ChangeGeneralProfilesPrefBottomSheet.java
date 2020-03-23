@@ -1,11 +1,12 @@
 package net.osmand.plus.settings.bottomsheets;
 
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
 import android.view.View;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 
 import net.osmand.PlatformUtil;
 import net.osmand.plus.ApplicationMode;
@@ -55,7 +56,7 @@ public class ChangeGeneralProfilesPrefBottomSheet extends BasePreferenceBottomSh
 					@Override
 					public void onClick(View v) {
 						app.getSettings().setPreferenceForAllModes(prefId, newValue);
-						updateTargetSettings(false);
+						updateTargetSettings(false, true);
 						dismiss();
 					}
 				})
@@ -65,14 +66,14 @@ public class ChangeGeneralProfilesPrefBottomSheet extends BasePreferenceBottomSh
 		ApplicationMode selectedAppMode = getAppMode();
 
 		BaseBottomSheetItem applyToCurrentProfile = new SimpleBottomSheetItem.Builder()
-				.setTitle(getString(R.string.apply_to_current_profile, selectedAppMode.toHumanString(app)))
+				.setTitle(getString(R.string.apply_to_current_profile, selectedAppMode.toHumanString()))
 				.setIcon(getActiveIcon(selectedAppMode.getIconRes()))
 				.setLayoutId(R.layout.bottom_sheet_item_simple)
 				.setOnClickListener(new View.OnClickListener() {
 					@Override
 					public void onClick(View v) {
 						app.getSettings().setPreference(prefId, newValue, getAppMode());
-						updateTargetSettings(false);
+						updateTargetSettings(false, false);
 						dismiss();
 					}
 				})
@@ -86,7 +87,7 @@ public class ChangeGeneralProfilesPrefBottomSheet extends BasePreferenceBottomSh
 				.setOnClickListener(new View.OnClickListener() {
 					@Override
 					public void onClick(View v) {
-						updateTargetSettings(true);
+						updateTargetSettings(true, false);
 						dismiss();
 					}
 				})
@@ -105,9 +106,12 @@ public class ChangeGeneralProfilesPrefBottomSheet extends BasePreferenceBottomSh
 		outState.putSerializable(NEW_VALUE_KEY, newValue);
 	}
 
-	private void updateTargetSettings(boolean discard) {
+	private void updateTargetSettings(boolean discard, boolean appliedToAllProfiles) {
 		BaseSettingsFragment target = (BaseSettingsFragment) getTargetFragment();
 		if (target != null) {
+			if (!discard) {
+				target.onSettingApplied(getPrefId(), appliedToAllProfiles);
+			}
 			target.updateSetting(getPrefId());
 			if (!discard) {
 				if (target.shouldDismissOnChange()) {

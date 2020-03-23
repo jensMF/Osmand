@@ -8,10 +8,11 @@ import android.graphics.Paint.Join;
 import android.graphics.Paint.Style;
 import android.graphics.Path;
 import android.graphics.PointF;
-import android.support.annotation.NonNull;
 import android.text.TextPaint;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
+
+import androidx.annotation.NonNull;
 
 import net.osmand.IndexConstants;
 import net.osmand.binary.BinaryMapDataObject;
@@ -45,8 +46,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -249,12 +252,12 @@ public class DownloadedRegionsLayer extends OsmandMapLayer implements IContextMe
 		if (app.getSettings().SHOW_DOWNLOAD_MAP_DIALOG.get()
 				&& zoom >= ZOOM_MIN_TO_SHOW_DOWNLOAD_DIALOG && zoom <= ZOOM_MAX_TO_SHOW_DOWNLOAD_DIALOG
 				&& currentObjects != null) {
-			WorldRegion regionData;
-			List<BinaryMapDataObject> selectedObjects = new ArrayList<>();
+
+			Map<WorldRegion, BinaryMapDataObject> selectedObjects = new LinkedHashMap<>();
 			for (int i = 0; i < currentObjects.size(); i++) {
 				final BinaryMapDataObject o = currentObjects.get(i);
 				String fullName = osmandRegions.getFullName(o);
-				regionData = osmandRegions.getRegionData(fullName);
+				WorldRegion regionData = osmandRegions.getRegionData(fullName);
 				if (regionData != null && regionData.isRegionMapDownload()) {
 					String regionDownloadName = regionData.getRegionDownloadName();
 					if (regionDownloadName != null) {
@@ -262,7 +265,7 @@ public class DownloadedRegionsLayer extends OsmandMapLayer implements IContextMe
 							hideDownloadMapToolbar();
 							return;
 						} else {
-							selectedObjects.add(o);
+							selectedObjects.put(regionData, o);
 						}
 					}
 				}
@@ -270,11 +273,9 @@ public class DownloadedRegionsLayer extends OsmandMapLayer implements IContextMe
 
 			IndexItem indexItem = null;
 			String name = null;
-			BinaryMapDataObject smallestRegion = app.getRegions().getSmallestBinaryMapDataObjectAt(selectedObjects);
-			if (smallestRegion != null) {
-				String fullName = osmandRegions.getFullName(smallestRegion);
-				regionData = osmandRegions.getRegionData(fullName);
-
+			Map.Entry<WorldRegion, BinaryMapDataObject> res = app.getRegions().getSmallestBinaryMapDataObjectAt(selectedObjects);
+			if (res != null && res.getKey() != null) {
+				WorldRegion regionData  = res.getKey();
 				DownloadIndexesThread downloadThread = app.getDownloadThread();
 				List<IndexItem> indexItems = downloadThread.getIndexes().getIndexItems(regionData);
 				if (indexItems.size() == 0) {

@@ -2,10 +2,13 @@ package net.osmand.plus.settings;
 
 import android.app.Activity;
 import android.content.Context;
-import android.support.v4.app.FragmentManager;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.SwitchPreferenceCompat;
 import android.util.Pair;
+import android.widget.ImageView;
+
+import androidx.fragment.app.FragmentManager;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceViewHolder;
+import androidx.preference.SwitchPreferenceCompat;
 
 import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.OsmandApplication;
@@ -33,6 +36,7 @@ public class GlobalSettingsFragment extends BaseSettingsFragment implements Send
 		setupSendAnonymousDataPref();
 		setupDialogsAndNotificationsPref();
 		setupEnableProxyPref();
+		setupUseSystemScreenTimeout();
 	}
 
 	@Override
@@ -46,6 +50,18 @@ public class GlobalSettingsFragment extends BaseSettingsFragment implements Send
 			}
 		} else {
 			super.onDisplayPreferenceDialog(preference);
+		}
+	}
+
+	@Override
+	protected void onBindPreferenceViewHolder(Preference preference, PreferenceViewHolder holder) {
+		super.onBindPreferenceViewHolder(preference, holder);
+		if (DIALOGS_AND_NOTIFICATIONS_PREF_ID.equals(preference.getKey())) {
+			ImageView imageView = (ImageView) holder.findViewById(android.R.id.icon);
+			if (imageView != null) {
+				boolean enabled = preference.isEnabled() && (!settings.DO_NOT_SHOW_STARTUP_MESSAGES.get() || settings.SHOW_DOWNLOAD_MAP_DIALOG.get());
+				imageView.setEnabled(enabled);
+			}
 		}
 	}
 
@@ -102,12 +118,13 @@ public class GlobalSettingsFragment extends BaseSettingsFragment implements Send
 		String[] entries = new String[appModes.length];
 		String[] entryValues = new String[appModes.length];
 		for (int i = 0; i < entries.length; i++) {
-			entries[i] = appModes[i].toHumanString(app);
+			entries[i] = appModes[i].toHumanString();
 			entryValues[i] = appModes[i].getStringKey();
 		}
 
 		ListPreferenceEx defaultApplicationMode = (ListPreferenceEx) findPreference(settings.DEFAULT_APPLICATION_MODE.getId());
-		defaultApplicationMode.setIcon(getContentIcon(settings.DEFAULT_APPLICATION_MODE.get().getIconRes()));
+		defaultApplicationMode.setIcon(getIcon(settings.DEFAULT_APPLICATION_MODE.get().getIconRes(),
+				settings.getApplicationMode().getIconColorInfo().getColor(isNightMode())));
 		defaultApplicationMode.setEntries(entries);
 		defaultApplicationMode.setEntryValues(entryValues);
 	}
@@ -118,7 +135,7 @@ public class GlobalSettingsFragment extends BaseSettingsFragment implements Send
 			return;
 		}
 		ListPreferenceEx preferredLocale = (ListPreferenceEx) findPreference(settings.PREFERRED_LOCALE.getId());
-		preferredLocale.setIcon(getContentIcon(R.drawable.ic_action_map_language));
+		preferredLocale.setIcon(getActiveIcon(R.drawable.ic_action_map_language));
 		preferredLocale.setSummary(settings.PREFERRED_LOCALE.get());
 
 		Pair<String[], String[]> preferredLocaleInfo = SettingsGeneralActivity.getPreferredLocaleIdsAndValues(ctx);
@@ -135,7 +152,7 @@ public class GlobalSettingsFragment extends BaseSettingsFragment implements Send
 
 	private void setupExternalStorageDirPref() {
 		Preference externalStorageDir = (Preference) findPreference(OsmandSettings.EXTERNAL_STORAGE_DIR);
-		externalStorageDir.setIcon(getContentIcon(R.drawable.ic_action_folder));
+		externalStorageDir.setIcon(getActiveIcon(R.drawable.ic_action_folder));
 
 		DataStorageHelper holder = new DataStorageHelper(app);
 		DataStorageMenuItem currentStorage = holder.getCurrentStorage();
@@ -163,15 +180,22 @@ public class GlobalSettingsFragment extends BaseSettingsFragment implements Send
 
 		SwitchPreferenceCompat sendAnonymousData = (SwitchPreferenceCompat) findPreference(SEND_ANONYMOUS_DATA_PREF_ID);
 		sendAnonymousData.setChecked(enabled);
+		sendAnonymousData.setIcon(getPersistentPrefIcon(R.drawable.ic_action_privacy_and_security));
 	}
 
 	private void setupDialogsAndNotificationsPref() {
 		Preference dialogsAndNotifications = (Preference) findPreference(DIALOGS_AND_NOTIFICATIONS_PREF_ID);
-		dialogsAndNotifications.setIcon(getContentIcon(R.drawable.ic_action_notification));
+		dialogsAndNotifications.setIcon(getPersistentPrefIcon(R.drawable.ic_action_notification));
 	}
 
 	private void setupEnableProxyPref() {
 		SwitchPreferenceEx enableProxy = (SwitchPreferenceEx) findPreference(settings.ENABLE_PROXY.getId());
-		enableProxy.setIcon(getContentIcon(R.drawable.ic_action_proxy));
+		enableProxy.setIcon(getPersistentPrefIcon(R.drawable.ic_action_proxy));
+	}
+
+	private void setupUseSystemScreenTimeout() {
+		SwitchPreferenceEx useSystemScreenTimeout = (SwitchPreferenceEx) findPreference(settings.USE_SYSTEM_SCREEN_TIMEOUT.getId());
+		useSystemScreenTimeout.setTitle(app.getString(R.string.use_system_screen_timeout));
+		useSystemScreenTimeout.setDescription(app.getString(R.string.use_system_screen_timeout_promo));
 	}
 }

@@ -5,15 +5,19 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.SwitchPreferenceCompat;
-import android.support.v7.widget.SwitchCompat;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.content.ContextCompat;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceViewHolder;
+import androidx.preference.SwitchPreferenceCompat;
 
 import net.osmand.AndroidUtils;
 import net.osmand.plus.ApplicationMode;
@@ -29,6 +33,7 @@ import net.osmand.plus.settings.preferences.ListPreferenceEx;
 
 import java.util.Set;
 
+import static net.osmand.plus.OsmandSettings.VOICE_PROVIDER_NOT_USE;
 import static net.osmand.plus.UiUtilities.CompoundButtonType.TOOLBAR;
 import static net.osmand.plus.activities.SettingsNavigationActivity.MORE_VALUE;
 
@@ -169,10 +174,14 @@ public class VoiceAnnouncesFragment extends BaseSettingsFragment {
 		entryValues[k] = MORE_VALUE;
 		entries[k] = getString(R.string.install_more);
 
+		Drawable disabled = getContentIcon(R.drawable.ic_action_volume_mute);
+		Drawable enabled = getActiveIcon(R.drawable.ic_action_volume_up);
+		Drawable icon = getPersistentPrefIcon(enabled, disabled);
+
 		ListPreferenceEx voiceProvider = (ListPreferenceEx) findPreference(settings.VOICE_PROVIDER.getId());
 		voiceProvider.setEntries(entries);
 		voiceProvider.setEntryValues(entryValues);
-		voiceProvider.setIcon(getContentIcon(R.drawable.ic_action_volume_up));
+		voiceProvider.setIcon(icon);
 	}
 
 	private void setupAudioStreamGuidancePref() {
@@ -191,13 +200,11 @@ public class VoiceAnnouncesFragment extends BaseSettingsFragment {
 		//AudioManager.USE_DEFAULT_STREAM_TYPE};
 
 		ListPreferenceEx audioStreamGuidance = createListPreferenceEx(settings.AUDIO_STREAM_GUIDANCE.getId(), streamTypes, streamIntTypes, R.string.choose_audio_stream, R.layout.preference_with_descr);
-		audioStreamGuidance.setIconSpaceReserved(true);
 		getPreferenceScreen().addPreference(audioStreamGuidance);
 	}
 
 	private void setupInterruptMusicPref() {
 		Preference interruptMusicPref = createSwitchPreference(settings.INTERRUPT_MUSIC, R.string.interrupt_music, R.string.interrupt_music_descr, R.layout.preference_switch_with_descr);
-		interruptMusicPref.setIconSpaceReserved(true);
 		getPreferenceScreen().addPreference(interruptMusicPref);
 	}
 
@@ -206,7 +213,7 @@ public class VoiceAnnouncesFragment extends BaseSettingsFragment {
 		if (ctx == null) {
 			return;
 		}
-		AlertDialog.Builder bld = new AlertDialog.Builder(ctx);
+		AlertDialog.Builder bld = new AlertDialog.Builder(UiUtilities.getThemedContext(ctx, isNightMode()));
 		bld.setMessage(R.string.confirm_usage_speed_cameras);
 		bld.setPositiveButton(R.string.shared_string_yes, new DialogInterface.OnClickListener() {
 
@@ -231,6 +238,22 @@ public class VoiceAnnouncesFragment extends BaseSettingsFragment {
 	}
 
 	@Override
+	protected void onBindPreferenceViewHolder(Preference preference, PreferenceViewHolder holder) {
+		super.onBindPreferenceViewHolder(preference, holder);
+		if (settings.VOICE_PROVIDER.getId().equals(preference.getKey()) && preference instanceof ListPreferenceEx) {
+			TextView titleView = (TextView) holder.findViewById(android.R.id.title);
+			if (titleView != null) {
+				titleView.setTextColor(preference.isEnabled() ? getActiveTextColor() : getDisabledTextColor());
+			}
+			ImageView imageView = (ImageView) holder.findViewById(android.R.id.icon);
+			if (imageView != null) {
+				Object currentValue = ((ListPreferenceEx) preference).getValue();
+				imageView.setEnabled(preference.isEnabled() && !OsmandSettings.VOICE_PROVIDER_NOT_USE.equals(currentValue));
+			}
+		}
+	}
+
+	@Override
 	public boolean onPreferenceChange(Preference preference, Object newValue) {
 		String prefId = preference.getKey();
 		ApplicationMode selectedMode = getSelectedAppMode();
@@ -242,7 +265,13 @@ public class VoiceAnnouncesFragment extends BaseSettingsFragment {
 				intent.putExtra(DownloadActivity.TAB_TO_OPEN, DownloadActivity.DOWNLOAD_TAB);
 				intent.putExtra(DownloadActivity.FILTER_CAT, DownloadActivityType.VOICE_FILE.getTag());
 				startActivity(intent);
+				return false;
 			} else if (newValue instanceof String) {
+				if (VOICE_PROVIDER_NOT_USE.equals(newValue)) {
+					settings.VOICE_MUTE.setModeValue(selectedMode, true);
+					updateToolbar();
+					setupPreferences();
+				}
 				settings.VOICE_PROVIDER.setModeValue(selectedMode, (String) newValue);
 				app.initVoiceCommandPlayer(getActivity(), selectedMode, false, null, true, false, false);
 			}

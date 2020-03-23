@@ -2,13 +2,14 @@ package net.osmand.plus.base.bottomsheetmenu;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.ColorRes;
-import android.support.annotation.LayoutRes;
-import android.support.v4.content.ContextCompat;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.annotation.ColorRes;
+import androidx.annotation.LayoutRes;
+import androidx.core.content.ContextCompat;
 
 import net.osmand.AndroidUtils;
 import net.osmand.plus.R;
@@ -17,7 +18,7 @@ public class SimpleBottomSheetItem extends BaseBottomSheetItem {
 
 	private Drawable background;
 	private Drawable icon;
-	protected String title;
+	protected CharSequence title;
 	@ColorRes
 	protected int titleColorId = INVALID_ID;
 
@@ -32,7 +33,7 @@ public class SimpleBottomSheetItem extends BaseBottomSheetItem {
 								 int position,
 								 Drawable icon,
 								 Drawable background,
-								 String title,
+								 CharSequence title,
 								 @ColorRes int titleColorId) {
 		super(customView, layoutId, tag, disabled, onClickListener, position);
 		this.icon = icon;
@@ -53,6 +54,11 @@ public class SimpleBottomSheetItem extends BaseBottomSheetItem {
 	public void setIcon(Drawable icon) {
 		this.icon = icon;
 		iconView.setImageDrawable(icon);
+	}
+
+	public void setTitleColorId(@ColorRes int titleColorId) {
+		this.titleColorId = titleColorId;
+		titleTv.setTextColor(ContextCompat.getColor(titleTv.getContext(), titleColorId));
 	}
 
 	@Override
@@ -78,7 +84,7 @@ public class SimpleBottomSheetItem extends BaseBottomSheetItem {
 
 		protected Drawable icon;
 		protected Drawable background;
-		protected String title;
+		protected CharSequence title;
 		@ColorRes
 		protected int titleColorId = INVALID_ID;
 
@@ -92,7 +98,7 @@ public class SimpleBottomSheetItem extends BaseBottomSheetItem {
 			return this;
 		}
 
-		public Builder setTitle(String title) {
+		public Builder setTitle(CharSequence title) {
 			this.title = title;
 			return this;
 		}

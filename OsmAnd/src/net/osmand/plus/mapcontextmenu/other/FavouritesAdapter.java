@@ -1,19 +1,20 @@
 package net.osmand.plus.mapcontextmenu.other;
 
-import java.util.List;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import androidx.recyclerview.widget.RecyclerView;
 
 import net.osmand.data.FavouritePoint;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities.UpdateLocationViewCache;
 import net.osmand.plus.base.FavoriteImageDrawable;
-import android.app.Activity;
-import android.support.v7.widget.RecyclerView;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ImageView;
-import android.widget.TextView;
+
+import java.util.List;
 
 public class FavouritesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
@@ -42,12 +43,8 @@ public class FavouritesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
 		if (holder instanceof FavouritesViewHolder) {
 			FavouritesViewHolder favouritesViewHolder = (FavouritesViewHolder) holder;
 			FavouritePoint favouritePoint = getItem(position);
-			favouritesViewHolder.title.setText(favouritePoint.getName());
-			if (favouritePoint.getCategory().equals("")) {
-				favouritesViewHolder.description.setText(R.string.shared_string_favorites);
-			} else {
-				favouritesViewHolder.description.setText(favouritePoint.getCategory());
-			}
+			favouritesViewHolder.title.setText(favouritePoint.getDisplayName(app));
+			favouritesViewHolder.description.setText(favouritePoint.getCategoryDisplayName(app));
 			favouritesViewHolder.favouriteImage.setImageDrawable(
 					FavoriteImageDrawable.getOrCreate(app, favouritePoint.getColor(), false, favouritePoint));
 			app.getUIUtilities().updateLocationView(cache, favouritesViewHolder.arrowImage, favouritesViewHolder.distance,

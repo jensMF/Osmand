@@ -9,23 +9,24 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.ColorRes;
-import android.support.annotation.NonNull;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceGroup;
-import android.support.v7.preference.PreferenceGroupAdapter;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.SwitchCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.ColorRes;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceGroup;
+import androidx.preference.PreferenceGroupAdapter;
+import androidx.recyclerview.widget.RecyclerView;
 
 import net.osmand.AndroidUtils;
 import net.osmand.IndexConstants;
@@ -35,27 +36,27 @@ import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.R;
 import net.osmand.plus.SettingsHelper;
-import net.osmand.plus.SettingsHelper.ProfileSettingsItem;
+import net.osmand.plus.SettingsHelper.SettingsCollectListener;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
+import net.osmand.plus.helpers.AndroidUiHelper;
 import net.osmand.plus.helpers.FontCache;
 import net.osmand.plus.openseamapsplugin.NauticalMapsPlugin;
 import net.osmand.plus.profiles.SelectCopyAppModeBottomSheet;
+import net.osmand.plus.profiles.SelectCopyAppModeBottomSheet.CopyAppModePrefsListener;
 import net.osmand.plus.settings.bottomsheets.ResetProfilePrefsBottomSheet;
+import net.osmand.plus.settings.bottomsheets.ResetProfilePrefsBottomSheet.ResetAppModePrefsListener;
 import net.osmand.plus.skimapsplugin.SkiMapsPlugin;
 
 import org.apache.commons.logging.Log;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 
 import static net.osmand.plus.UiUtilities.CompoundButtonType.TOOLBAR;
-import static net.osmand.plus.profiles.EditProfileFragment.MAP_CONFIG;
-import static net.osmand.plus.profiles.EditProfileFragment.OPEN_CONFIG_ON_MAP;
-import static net.osmand.plus.profiles.EditProfileFragment.SCREEN_CONFIG;
-import static net.osmand.plus.profiles.EditProfileFragment.SELECTED_ITEM;
 
-public class ConfigureProfileFragment extends BaseSettingsFragment {
+public class ConfigureProfileFragment extends BaseSettingsFragment implements CopyAppModePrefsListener, ResetAppModePrefsListener {
 
 	public static final String TAG = ConfigureProfileFragment.class.getSimpleName();
 
@@ -91,7 +92,7 @@ public class ConfigureProfileFragment extends BaseSettingsFragment {
 
 		TextView toolbarTitle = view.findViewById(R.id.toolbar_title);
 		toolbarTitle.setTypeface(FontCache.getRobotoMedium(view.getContext()));
-		toolbarTitle.setText(getSelectedAppMode().toHumanString(getContext()));
+		toolbarTitle.setText(getSelectedAppMode().toHumanString());
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
 			float letterSpacing = AndroidUtils.getFloatValueFromRes(view.getContext(), R.dimen.title_letter_spacing);
 			toolbarTitle.setLetterSpacing(letterSpacing);
@@ -101,19 +102,20 @@ public class ConfigureProfileFragment extends BaseSettingsFragment {
 		toolbarSubtitle.setText(R.string.configure_profile);
 		toolbarSubtitle.setVisibility(View.VISIBLE);
 
-		if (!getSelectedAppMode().equals(ApplicationMode.DEFAULT)) {
-			view.findViewById(R.id.toolbar_switch_container).setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View view) {
-					ApplicationMode selectedMode = getSelectedAppMode();
-					List<ApplicationMode> availableAppModes = ApplicationMode.values(getMyApplication());
-					boolean isChecked = availableAppModes.contains(selectedMode);
-					ApplicationMode.changeProfileAvailability(selectedMode, !isChecked, getMyApplication());
-					updateToolbarSwitch();
-				}
-			});
-		} else {
-			view.findViewById(R.id.switchWidget).setVisibility(View.GONE);
+		view.findViewById(R.id.toolbar_switch_container).setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View view) {
+				ApplicationMode selectedMode = getSelectedAppMode();
+				List<ApplicationMode> availableAppModes = ApplicationMode.values(getMyApplication());
+				boolean isChecked = availableAppModes.contains(selectedMode);
+				ApplicationMode.changeProfileAvailability(selectedMode, !isChecked, getMyApplication());
+				updateToolbarSwitch();
+			}
+		});
+
+		View switchProfile = view.findViewById(R.id.profile_button);
+		if (switchProfile != null) {
+			switchProfile.setVisibility(View.VISIBLE);
 		}
 	}
 
@@ -144,7 +146,75 @@ public class ConfigureProfileFragment extends BaseSettingsFragment {
 	@Override
 	protected void updateToolbar() {
 		super.updateToolbar();
-		updateToolbarSwitch();
+		View view = getView();
+		if (view != null) {
+			updateToolbarSwitch();
+			TextView toolbarTitle = view.findViewById(R.id.toolbar_title);
+			toolbarTitle.setText(getSelectedAppMode().toHumanString());
+
+			boolean visible = !getSelectedAppMode().equals(ApplicationMode.DEFAULT);
+			AndroidUiHelper.updateVisibility(view.findViewById(R.id.switchWidget), visible);
+		}
+	}
+
+	@Override
+	public void copyAppModePrefs(ApplicationMode appMode) {
+		if (appMode != null) {
+			ApplicationMode selectedAppMode = getSelectedAppMode();
+			app.getSettings().copyPreferencesFromProfile(appMode, selectedAppMode);
+			updateCopiedOrResetPrefs();
+		}
+	}
+
+	@Override
+	public void resetAppModePrefs(ApplicationMode appMode) {
+		if (appMode != null) {
+			if (appMode.isCustomProfile()) {
+				File file = getBackupFileForCustomMode(app, appMode.getStringKey());
+				if (file.exists()) {
+					restoreCustomModeFromFile(file);
+				}
+			} else {
+				app.getSettings().resetPreferencesForProfile(appMode);
+				app.showToastMessage(R.string.profile_prefs_reset_successful);
+				updateCopiedOrResetPrefs();
+			}
+		}
+	}
+
+	private void restoreCustomModeFromFile(final File file) {
+		app.getSettingsHelper().collectSettings(file, "", 1, new SettingsCollectListener() {
+			@Override
+			public void onSettingsCollectFinished(boolean succeed, boolean empty, @NonNull List<SettingsHelper.SettingsItem> items) {
+				if (succeed) {
+					for (SettingsHelper.SettingsItem item : items) {
+						item.setShouldReplace(true);
+					}
+					importBackupSettingsItems(file, items);
+				}
+			}
+		});
+	}
+
+	private void importBackupSettingsItems(File file, List<SettingsHelper.SettingsItem> items) {
+		app.getSettingsHelper().importSettings(file, items, "", 1, new SettingsHelper.SettingsImportListener() {
+			@Override
+			public void onSettingsImportFinished(boolean succeed, @NonNull List<SettingsHelper.SettingsItem> items) {
+				app.showToastMessage(R.string.profile_prefs_reset_successful);
+				updateCopiedOrResetPrefs();
+			}
+		});
+	}
+
+	private void updateCopiedOrResetPrefs() {
+		MapActivity mapActivity = getMapActivity();
+		if (mapActivity != null) {
+			app.getPoiFilters().loadSelectedPoiFilters();
+			mapActivity.getMapLayers().getMapWidgetRegistry().updateVisibleWidgets();
+			mapActivity.updateApplicationModeSettings();
+			updateToolbar();
+			updateAllSettings();
+		}
 	}
 
 	private RecyclerView.ItemDecoration createDividerItemDecoration() {
@@ -228,11 +298,11 @@ public class ConfigureProfileFragment extends BaseSettingsFragment {
 			return;
 		}
 		Preference configureMap = findPreference(CONFIGURE_MAP);
-		configureMap.setIcon(getContentIcon(R.drawable.ic_action_layers_dark));
+		configureMap.setIcon(getContentIcon(R.drawable.ic_action_layers));
 
 		Intent intent = new Intent(ctx, MapActivity.class);
 		intent.putExtra(OPEN_CONFIG_ON_MAP, MAP_CONFIG);
-		intent.putExtra(SELECTED_ITEM, getSelectedAppMode().getStringKey());
+		intent.putExtra(APP_MODE_KEY, getSelectedAppMode().getStringKey());
 		configureMap.setIntent(intent);
 	}
 
@@ -246,7 +316,7 @@ public class ConfigureProfileFragment extends BaseSettingsFragment {
 
 		Intent intent = new Intent(ctx, MapActivity.class);
 		intent.putExtra(OPEN_CONFIG_ON_MAP, SCREEN_CONFIG);
-		intent.putExtra(SELECTED_ITEM, getSelectedAppMode().getStringKey());
+		intent.putExtra(APP_MODE_KEY, getSelectedAppMode().getStringKey());
 		configureMap.setIntent(intent);
 	}
 
@@ -268,7 +338,8 @@ public class ConfigureProfileFragment extends BaseSettingsFragment {
 
 	private void setupResetToDefaultPref() {
 		Preference resetToDefault = findPreference(RESET_TO_DEFAULT);
-		if (getSelectedAppMode().isCustomProfile()) {
+		ApplicationMode mode = getSelectedAppMode();
+		if (mode.isCustomProfile() && !getBackupFileForCustomMode(app, mode.getStringKey()).exists()) {
 			resetToDefault.setVisible(false);
 		} else {
 			resetToDefault.setIcon(app.getUIUtilities().getIcon(R.drawable.ic_action_reset_to_default_dark,
@@ -286,22 +357,6 @@ public class ConfigureProfileFragment extends BaseSettingsFragment {
 		Preference deleteProfile = findPreference(DELETE_PROFILE);
 		deleteProfile.setIcon(app.getUIUtilities().getIcon(R.drawable.ic_action_delete_dark,
 				isNightMode() ? R.color.active_color_primary_dark : R.color.active_color_primary_light));
-	}
-
-	private void shareProfile(@NonNull File file, @NonNull ApplicationMode profile) {
-		try {
-			Context ctx = requireContext();
-			final Intent sendIntent = new Intent();
-			sendIntent.setAction(Intent.ACTION_SEND);
-			sendIntent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.exported_osmand_profile, profile.toHumanString(ctx)));
-			sendIntent.putExtra(Intent.EXTRA_STREAM, AndroidUtils.getUriForFile(getMyApplication(), file));
-			sendIntent.setType("*/*");
-			sendIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-			startActivity(sendIntent);
-		} catch (Exception e) {
-			app.showToastMessage(R.string.export_profile_failed);
-			LOG.error("Share profile error", e);
-		}
 	}
 
 	private void setupOsmandPluginsPref(PreferenceCategory preferenceCategory) {
@@ -362,23 +417,13 @@ public class ConfigureProfileFragment extends BaseSettingsFragment {
 				ResetProfilePrefsBottomSheet.showInstance(fragmentManager, prefId, this, false, getSelectedAppMode());
 			}
 		} else if (EXPORT_PROFILE.equals(prefId)) {
-			Context ctx = requireContext();
-			final ApplicationMode profile = getSelectedAppMode();
-			File tempDir = app.getAppPath(IndexConstants.TEMP_DIR);
-			if (!tempDir.exists()) {
-				tempDir.mkdirs();
+			FragmentManager fragmentManager = getFragmentManager();
+			if (fragmentManager != null) {
+				ExportProfileBottomSheet.showInstance(
+						fragmentManager,
+						this,
+						getSelectedAppMode());
 			}
-			String fileName = profile.toHumanString(ctx);
-			app.getSettingsHelper().exportSettings(tempDir, fileName, new SettingsHelper.SettingsExportListener() {
-				@Override
-				public void onSettingsExportFinished(@NonNull File file, boolean succeed) {
-					if (succeed) {
-						shareProfile(file, profile);
-					} else {
-						app.showToastMessage(R.string.export_profile_failed);
-					}
-				}
-			}, new ProfileSettingsItem(app.getSettings(), profile));
 		} else if (DELETE_PROFILE.equals(prefId)) {
 			onDeleteProfileClick();
 		}
@@ -394,15 +439,14 @@ public class ConfigureProfileFragment extends BaseSettingsFragment {
 				bld.setTitle(R.string.profile_alert_delete_title);
 				bld.setMessage(String
 						.format(getString(R.string.profile_alert_delete_msg),
-								profile.getCustomProfileName()));
+								profile.getUserProfileName()));
 				bld.setPositiveButton(R.string.shared_string_delete,
 						new DialogInterface.OnClickListener() {
 							@Override
 							public void onClick(DialogInterface dialog, int which) {
 								OsmandApplication app = getMyApplication();
 								if (app != null) {
-									ApplicationMode.deleteCustomMode(ApplicationMode.valueOfStringKey(profile.getStringKey(), ApplicationMode.DEFAULT), app);
-									app.getSettings().APPLICATION_MODE.set(ApplicationMode.DEFAULT);
+									ApplicationMode.deleteCustomModes(Collections.singletonList(profile), app);
 								}
 
 								if (getActivity() != null) {
@@ -417,5 +461,15 @@ public class ConfigureProfileFragment extends BaseSettingsFragment {
 						Toast.LENGTH_SHORT).show();
 			}
 		}
+	}
+
+	public static File getBackupFileForCustomMode(OsmandApplication app, String appModeKey) {
+		String fileName = appModeKey + IndexConstants.OSMAND_SETTINGS_FILE_EXT;
+		File backupDir = app.getAppPath(IndexConstants.BACKUP_INDEX_DIR);
+		if (!backupDir.exists()) {
+			backupDir.mkdirs();
+		}
+
+		return new File(backupDir, fileName);
 	}
 }

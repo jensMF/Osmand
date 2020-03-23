@@ -1,24 +1,5 @@
 package net.osmand.router;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.commons.logging.Log;
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-
-import gnu.trove.iterator.TIntIterator;
-import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.set.hash.TIntHashSet;
 import net.osmand.PlatformUtil;
 import net.osmand.binary.BinaryMapIndexReader;
 import net.osmand.binary.BinaryMapRouteReaderAdapter.RouteTypeRule;
@@ -37,6 +18,26 @@ import net.osmand.util.Algorithms;
 import net.osmand.util.MapAlgorithms;
 import net.osmand.util.MapUtils;
 
+import org.apache.commons.logging.Log;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import gnu.trove.iterator.TIntIterator;
+import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.set.hash.TIntHashSet;
+
 public class RouteResultPreparation {
 
 	public static boolean PRINT_TO_CONSOLE_ROUTE_INFORMATION_TO_TEST = false;
@@ -49,7 +50,7 @@ public class RouteResultPreparation {
 	 */
 	List<RouteSegmentResult> prepareResult(RoutingContext ctx, FinalRouteSegment finalSegment) throws IOException {
 		List<RouteSegmentResult> result  = convertFinalSegmentToResults(ctx, finalSegment);
-		prepareResult(ctx, result);
+		prepareResult(ctx, result, false);
 		return result;
 	}
 	
@@ -164,13 +165,13 @@ public class RouteResultPreparation {
 		return intersections % 2 == 1;
 	}
 
-	List<RouteSegmentResult> prepareResult(RoutingContext ctx, List<RouteSegmentResult> result) throws IOException {
+	List<RouteSegmentResult> prepareResult(RoutingContext ctx, List<RouteSegmentResult> result, boolean recalculation) throws IOException {
 		for(int i = 0; i < result.size(); i++) {
 			checkAndInitRouteRegion(ctx, result.get(i).getObject());
 		}
 		combineWayPointsForAreaRouting(ctx, result);
 		validateAllPointsConnected(result);
-		splitRoadsAndAttachRoadSegments(ctx, result);
+		splitRoadsAndAttachRoadSegments(ctx, result, recalculation);
 		calculateTimeSpeed(ctx, result);
 		
 		for (int i = 0; i < result.size(); i ++) {
@@ -298,7 +299,7 @@ public class RouteResultPreparation {
 		}
 	}
 
-	private void splitRoadsAndAttachRoadSegments(RoutingContext ctx, List<RouteSegmentResult> result) throws IOException {
+	private void splitRoadsAndAttachRoadSegments(RoutingContext ctx, List<RouteSegmentResult> result, boolean recalculation) throws IOException {
 		for (int i = 0; i < result.size(); i++) {
 			if (ctx.checkIfMemoryLimitCritical(ctx.config.memoryLimitation)) {
 				ctx.unloadUnusedTiles(ctx.config.memoryLimitation);
@@ -309,10 +310,10 @@ public class RouteResultPreparation {
 			for (int j = rr.getStartPointIndex(); j != rr.getEndPointIndex(); j = next) {
 				next = plus ? j + 1 : j - 1;
 				if (j == rr.getStartPointIndex()) {
-					attachRoadSegments(ctx, result, i, j, plus);
+					attachRoadSegments(ctx, result, i, j, plus, recalculation);
 				}
 				if (next != rr.getEndPointIndex()) {
-					attachRoadSegments(ctx, result, i, next, plus);
+					attachRoadSegments(ctx, result, i, next, plus, recalculation);
 				}
 				List<RouteSegmentResult> attachedRoutes = rr.getAttachedRoutes(next);
 				boolean tryToSplit = next != rr.getEndPointIndex() && !rr.getObject().roundabout() && attachedRoutes != null;
@@ -1256,7 +1257,7 @@ public class RouteResultPreparation {
 			if (turn == TurnType.TU || sturn == TurnType.TU || tturn == TurnType.TU) {
 				possiblyLeftTurn = true;
 			}
-			if (turn == TurnType.TRU || sturn == TurnType.TRU || sturn == TurnType.TRU) {
+			if (turn == TurnType.TRU || sturn == TurnType.TRU || tturn == TurnType.TRU) {
 				possiblyRightTurn = true;
 			}
 		}
@@ -1563,7 +1564,7 @@ public class RouteResultPreparation {
 		return null;
 	}
 	
-	private static int[] calculateRawTurnLanes(String turnLanes, int calcTurnType) {
+	public static int[] calculateRawTurnLanes(String turnLanes, int calcTurnType) {
 		String[] splitLaneOptions = turnLanes.split("\\|", -1);
 		int[] lanes = new int[splitLaneOptions.length];
 		for (int i = 0; i < splitLaneOptions.length; i++) {
@@ -1694,7 +1695,7 @@ public class RouteResultPreparation {
 	}
 
 	
-	private void attachRoadSegments(RoutingContext ctx, List<RouteSegmentResult> result, int routeInd, int pointInd, boolean plus) throws IOException {
+	private void attachRoadSegments(RoutingContext ctx, List<RouteSegmentResult> result, int routeInd, int pointInd, boolean plus, boolean recalculation) throws IOException {
 		RouteSegmentResult rr = result.get(routeInd);
 		RouteDataObject road = rr.getObject();
 		long nextL = pointInd < road.getPointsLength() - 1 ? getPoint(road, pointInd + 1) : 0;
@@ -1739,11 +1740,12 @@ public class RouteResultPreparation {
 				public void remove() {
 				}
 			};	
+		} else if (recalculation) {
+			RouteSegment rt = ctx.loadRouteSegment(road.getPoint31XTile(pointInd), road.getPoint31YTile(pointInd), ctx.config.memoryLimitation);
+			it = rt == null ? null : rt.getIterator();
 		} else {
-			// Here we assume that all segments should be attached by native 
+			// Here we assume that all segments should be attached by native
 			it = null;
-//			RouteSegment rt = ctx.loadRouteSegment(road.getPoint31XTile(pointInd), road.getPoint31YTile(pointInd), ctx.config.memoryLimitation);
-//			it = rt == null ? null : rt.getIterator();
 		}
 		// try to attach all segments except with current id
 		while (it != null && it.hasNext()) {

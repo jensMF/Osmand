@@ -1,44 +1,67 @@
 package net.osmand.plus.monitoring;
 
 import android.content.Intent;
-import android.support.v4.app.FragmentManager;
-import android.support.v7.preference.Preference;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.os.Bundle;
+import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 
+import androidx.fragment.app.FragmentManager;
+import androidx.preference.Preference;
+
+import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.OsmAndAppCustomization;
+import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.OsmandSettings;
 import net.osmand.plus.R;
+import net.osmand.plus.activities.MapActivity;
+import net.osmand.plus.helpers.FontCache;
 import net.osmand.plus.myplaces.FavoritesActivity;
+import net.osmand.plus.profiles.SelectCopyAppModeBottomSheet;
+import net.osmand.plus.profiles.SelectCopyAppModeBottomSheet.CopyAppModePrefsListener;
 import net.osmand.plus.settings.BaseSettingsFragment;
 import net.osmand.plus.settings.bottomsheets.ChangeGeneralProfilesPrefBottomSheet;
+import net.osmand.plus.settings.bottomsheets.ResetProfilePrefsBottomSheet;
+import net.osmand.plus.settings.bottomsheets.ResetProfilePrefsBottomSheet.ResetAppModePrefsListener;
+import net.osmand.plus.settings.bottomsheets.SingleSelectPreferenceBottomSheet;
 import net.osmand.plus.settings.preferences.ListPreferenceEx;
 import net.osmand.plus.settings.preferences.SwitchPreferenceEx;
+import net.osmand.plus.widgets.style.CustomTypefaceSpan;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 
-import static net.osmand.plus.OsmandSettings.DAILY_DIRECTORY;
 import static net.osmand.plus.OsmandSettings.MONTHLY_DIRECTORY;
 import static net.osmand.plus.OsmandSettings.REC_DIRECTORY;
 import static net.osmand.plus.monitoring.OsmandMonitoringPlugin.MINUTES;
 import static net.osmand.plus.monitoring.OsmandMonitoringPlugin.SECONDS;
+import static net.osmand.plus.myplaces.FavoritesActivity.TAB_ID;
 
-public class MonitoringSettingsFragment extends BaseSettingsFragment {
+public class MonitoringSettingsFragment extends BaseSettingsFragment
+		implements CopyAppModePrefsListener, ResetAppModePrefsListener {
 
 	private static final String COPY_PLUGIN_SETTINGS = "copy_plugin_settings";
 	private static final String RESET_TO_DEFAULT = "reset_to_default";
 	private static final String OPEN_TRACKS = "open_tracks";
+	private static final String SAVE_GLOBAL_TRACK_INTERVAL = "save_global_track_interval";
 
 	@Override
 	protected void setupPreferences() {
 		setupSaveTrackToGpxPref();
 		setupSaveTrackIntervalPref();
 
+		setupSaveGlobalTrackIntervalPref();
 		setupSaveTrackMinDistancePref();
 		setupSaveTrackPrecisionPref();
 		setupSaveTrackMinSpeedPref();
 		setupAutoSplitRecordingPref();
 		setupDisableRecordingOnceAppKilledPref();
+		setupSaveHeadingToGpxPref();
 
 		setupTrackStorageDirectoryPref();
+		setupShowTripRecNotificationPref();
 		setupLiveMonitoringPref();
 
 		setupOpenNotesDescrPref();
@@ -51,29 +74,45 @@ public class MonitoringSettingsFragment extends BaseSettingsFragment {
 	private void setupSaveTrackToGpxPref() {
 		SwitchPreferenceEx saveTrackToGpx = (SwitchPreferenceEx) findPreference(settings.SAVE_TRACK_TO_GPX.getId());
 		saveTrackToGpx.setDescription(getString(R.string.save_track_to_gpx_descrp));
-		saveTrackToGpx.setIcon(getContentIcon(R.drawable.ic_action_gdirections_dark));
+		saveTrackToGpx.setIcon(getPersistentPrefIcon(R.drawable.ic_action_gdirections_dark));
 	}
 
 	private void setupSaveTrackIntervalPref() {
-		Integer[] entryValues = new Integer[SECONDS.length + MINUTES.length];
-		String[] entries = new String[entryValues.length];
-		int k = 0;
-		for (int second : SECONDS) {
-			entryValues[k] = second * 1000;
-			entries[k] = second + " " + getString(R.string.int_seconds);
-			k++;
-		}
-		for (int minute : MINUTES) {
-			entryValues[k] = (minute * 60) * 1000;
-			entries[k] = minute + " " + getString(R.string.int_min);
-			k++;
-		}
-
+		HashMap<Object, String> entry = getTimeValues(false);
 		ListPreferenceEx saveTrackInterval = (ListPreferenceEx) findPreference(settings.SAVE_TRACK_INTERVAL.getId());
-		saveTrackInterval.setEntries(entries);
-		saveTrackInterval.setEntryValues(entryValues);
+		saveTrackInterval.setEntries(entry.values().toArray(new String[0]));
+		saveTrackInterval.setEntryValues(entry.keySet().toArray());
 		saveTrackInterval.setIcon(getActiveIcon(R.drawable.ic_action_time_span));
 		saveTrackInterval.setDescription(R.string.save_track_interval_descr);
+	}
+
+	private void setupSaveGlobalTrackIntervalPref() {
+		HashMap<Object, String> entry = getTimeValues(true);
+		ListPreferenceEx saveTrackInterval = (ListPreferenceEx) findPreference(settings.SAVE_GLOBAL_TRACK_INTERVAL.getId());
+		saveTrackInterval.setEntries(entry.values().toArray(new String[0]));
+		saveTrackInterval.setEntryValues(entry.keySet().toArray());
+		ApplicationMode selectedAppMode = getSelectedAppMode();
+		if (!settings.SAVE_GLOBAL_TRACK_REMEMBER.getModeValue(selectedAppMode)) {
+			saveTrackInterval.setValue(settings.SAVE_GLOBAL_TRACK_REMEMBER.getModeValue(selectedAppMode));
+		} else {
+			saveTrackInterval.setValue(settings.SAVE_GLOBAL_TRACK_INTERVAL.getModeValue(selectedAppMode));
+		}
+		saveTrackInterval.setIcon(getActiveIcon(R.drawable.ic_action_time_span));
+		saveTrackInterval.setDescription(R.string.save_global_track_interval_descr);
+	}
+
+	private HashMap<Object, String> getTimeValues(boolean alwaysAskEntry) {
+		HashMap<Object, String> entry = new LinkedHashMap<>();
+		if (alwaysAskEntry) {
+			entry.put(settings.SAVE_GLOBAL_TRACK_REMEMBER.getModeValue(getSelectedAppMode()), getString(R.string.confirm_every_run));
+		}
+		for (int second : SECONDS) {
+			entry.put(second * 1000, second + " " + getString(R.string.int_seconds));
+		}
+		for (int minute : MINUTES) {
+			entry.put((minute * 60) * 1000, minute + " " + getString(R.string.int_min));
+		}
+		return entry;
 	}
 
 	private void setupSaveTrackMinDistancePref() {
@@ -87,7 +126,14 @@ public class MonitoringSettingsFragment extends BaseSettingsFragment {
 		ListPreferenceEx saveTrackMinDistance = (ListPreferenceEx) findPreference(settings.SAVE_TRACK_MIN_DISTANCE.getId());
 		saveTrackMinDistance.setEntries(entries);
 		saveTrackMinDistance.setEntryValues(entryValues);
-		saveTrackMinDistance.setDescription(R.string.save_track_min_distance_descr);
+
+		SpannableStringBuilder stringBuilder = new SpannableStringBuilder(getString(R.string.monitoring_min_distance_descr));
+		stringBuilder.append("\n");
+		stringBuilder.append(getString(R.string.monitoring_min_distance_descr_side_effect));
+		stringBuilder.append("\n");
+		stringBuilder.append(getString(R.string.monitoring_min_distance_descr_recommendation));
+
+		saveTrackMinDistance.setDescription(stringBuilder.toString());
 	}
 
 	private void setupSaveTrackPrecisionPref() {
@@ -101,7 +147,16 @@ public class MonitoringSettingsFragment extends BaseSettingsFragment {
 		ListPreferenceEx saveTrackPrecision = (ListPreferenceEx) findPreference(settings.SAVE_TRACK_PRECISION.getId());
 		saveTrackPrecision.setEntries(entries);
 		saveTrackPrecision.setEntryValues(entryValues);
-		saveTrackPrecision.setDescription(R.string.save_track_precision_descr);
+
+		SpannableStringBuilder stringBuilder = new SpannableStringBuilder(getString(R.string.monitoring_min_accuracy_descr));
+		stringBuilder.append("\n");
+		stringBuilder.append(getString(R.string.monitoring_min_accuracy_descr_side_effect));
+		stringBuilder.append("\n");
+		stringBuilder.append(getString(R.string.monitoring_min_accuracy_descr_recommendation));
+		stringBuilder.append("\n");
+		stringBuilder.append(getString(R.string.monitoring_min_accuracy_descr_remark));
+
+		saveTrackPrecision.setDescription(stringBuilder.toString());
 	}
 
 	private void setupSaveTrackMinSpeedPref() {
@@ -117,7 +172,16 @@ public class MonitoringSettingsFragment extends BaseSettingsFragment {
 		ListPreferenceEx saveTrackMinSpeed = (ListPreferenceEx) findPreference(settings.SAVE_TRACK_MIN_SPEED.getId());
 		saveTrackMinSpeed.setEntries(entries);
 		saveTrackMinSpeed.setEntryValues(entryValues);
-		saveTrackMinSpeed.setDescription(R.string.save_track_min_speed_descr);
+
+		SpannableStringBuilder stringBuilder = new SpannableStringBuilder(getString(R.string.monitoring_min_speed_descr));
+		stringBuilder.append("\n");
+		stringBuilder.append(getString(R.string.monitoring_min_speed_descr_side_effect));
+		stringBuilder.append("\n");
+		stringBuilder.append(getString(R.string.monitoring_min_speed_descr_recommendation));
+		stringBuilder.append("\n");
+		stringBuilder.append(getString(R.string.monitoring_min_speed_descr_remark));
+
+		saveTrackMinSpeed.setDescription(stringBuilder.toString());
 	}
 
 	private void setupAutoSplitRecordingPref() {
@@ -130,8 +194,19 @@ public class MonitoringSettingsFragment extends BaseSettingsFragment {
 		disableRecordingOnceAppKilled.setDescription(getString(R.string.disable_recording_once_app_killed_descrp));
 	}
 
+	private void setupSaveHeadingToGpxPref() {
+		SwitchPreferenceEx saveHeadingToGpx = (SwitchPreferenceEx) findPreference(settings.SAVE_HEADING_TO_GPX.getId());
+		saveHeadingToGpx.setDescription(getString(R.string.save_heading_descr));
+	}
+
+	private void setupShowTripRecNotificationPref() {
+		SwitchPreferenceEx showTripRecNotification = (SwitchPreferenceEx) findPreference(settings.SHOW_TRIP_REC_NOTIFICATION.getId());
+		showTripRecNotification.setDescription(getString(R.string.trip_rec_notification_settings_desc));
+		showTripRecNotification.setIcon(getPersistentPrefIcon(R.drawable.ic_action_notification));
+	}
+
 	private void setupTrackStorageDirectoryPref() {
-		Integer[] entryValues = new Integer[] {REC_DIRECTORY, MONTHLY_DIRECTORY, DAILY_DIRECTORY};
+		Integer[] entryValues = new Integer[] {REC_DIRECTORY, MONTHLY_DIRECTORY};
 		String[] entries = new String[entryValues.length];
 		entries[0] = getString(R.string.store_tracks_in_rec_directory);
 		entries[1] = getString(R.string.store_tracks_in_monthly_directories);
@@ -145,14 +220,29 @@ public class MonitoringSettingsFragment extends BaseSettingsFragment {
 	}
 
 	private void setupLiveMonitoringPref() {
+		Drawable disabled = getContentIcon(R.drawable.ic_action_offline);
+		Drawable enabled = getActiveIcon(R.drawable.ic_world_globe_dark);
+		Drawable icon = getPersistentPrefIcon(enabled, disabled);
+
 		SwitchPreferenceEx liveMonitoring = (SwitchPreferenceEx) findPreference(settings.LIVE_MONITORING.getId());
 		liveMonitoring.setDescription(getString(R.string.live_monitoring_m_descr));
-		liveMonitoring.setIcon(getContentIcon(R.drawable.ic_world_globe_dark));
+		liveMonitoring.setIcon(icon);
 	}
 
 	private void setupOpenNotesDescrPref() {
-		Preference nameAndPasswordPref = findPreference("open_tracks_description");
-		nameAndPasswordPref.setTitle(getText(R.string.tracks_view_descr));
+		String menu = getString(R.string.shared_string_menu);
+		String myPlaces = getString(R.string.shared_string_my_places);
+		String tracks = getString(R.string.shared_string_tracks);
+		String tracksPath = getString(R.string.ltr_or_rtl_triple_combine_via_dash, menu, myPlaces, tracks);
+		String tracksPathDescr = getString(R.string.tracks_view_descr, tracksPath);
+
+		int startIndex = tracksPathDescr.indexOf(tracksPath);
+		SpannableString titleSpan = new SpannableString(tracksPathDescr);
+		Typeface typeface = FontCache.getRobotoMedium(getContext());
+		titleSpan.setSpan(new CustomTypefaceSpan(typeface), startIndex, startIndex + tracksPath.length(), 0);
+
+		Preference openTracksDescription = findPreference("open_tracks_description");
+		openTracksDescription.setTitle(titleSpan);
 	}
 
 	private void setupOpenNotesPref() {
@@ -172,13 +262,27 @@ public class MonitoringSettingsFragment extends BaseSettingsFragment {
 
 	@Override
 	public boolean onPreferenceClick(Preference preference) {
-		if (OPEN_TRACKS.equals(preference.getKey())) {
+		String prefId = preference.getKey();
+		if (OPEN_TRACKS.equals(prefId)) {
+			Bundle bundle = new Bundle();
+			bundle.putInt(TAB_ID, FavoritesActivity.GPX_TAB);
+
 			OsmAndAppCustomization appCustomization = app.getAppCustomization();
 			Intent favorites = new Intent(preference.getContext(), appCustomization.getFavoritesActivity());
 			favorites.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-			app.getSettings().FAVORITES_TAB.set(FavoritesActivity.GPX_TAB);
+			favorites.putExtra(MapActivity.INTENT_PARAMS, bundle);
 			startActivity(favorites);
 			return true;
+		} else if (COPY_PLUGIN_SETTINGS.equals(prefId)) {
+			FragmentManager fragmentManager = getFragmentManager();
+			if (fragmentManager != null) {
+				SelectCopyAppModeBottomSheet.showInstance(fragmentManager, this, false, getSelectedAppMode());
+			}
+		} else if (RESET_TO_DEFAULT.equals(prefId)) {
+			FragmentManager fragmentManager = getFragmentManager();
+			if (fragmentManager != null) {
+				ResetProfilePrefsBottomSheet.showInstance(fragmentManager, prefId, this, false, getSelectedAppMode());
+			}
 		}
 		return super.onPreferenceClick(preference);
 	}
@@ -188,15 +292,67 @@ public class MonitoringSettingsFragment extends BaseSettingsFragment {
 		String prefId = preference.getKey();
 
 		OsmandSettings.OsmandPreference pref = settings.getPreference(prefId);
-		if (pref instanceof OsmandSettings.CommonPreference && !((OsmandSettings.CommonPreference) pref).hasDefaultValueForMode(getSelectedAppMode())) {
-			FragmentManager fragmentManager = getFragmentManager();
-			if (fragmentManager != null && newValue instanceof Serializable) {
-				ChangeGeneralProfilesPrefBottomSheet.showInstance(fragmentManager, prefId,
-						(Serializable) newValue, this, false, getSelectedAppMode());
+		if (SAVE_GLOBAL_TRACK_INTERVAL.equals(prefId)) {
+			if (newValue instanceof Boolean) {
+				prefId = settings.SAVE_GLOBAL_TRACK_REMEMBER.getId();
+				newValue = Boolean.FALSE;
 			}
-			return false;
+			if (pref instanceof OsmandSettings.CommonPreference && !((OsmandSettings.CommonPreference) pref).hasDefaultValueForMode(getSelectedAppMode())) {
+				FragmentManager fragmentManager = getFragmentManager();
+				if (fragmentManager != null && newValue instanceof Serializable) {
+					ChangeGeneralProfilesPrefBottomSheet.showInstance(fragmentManager, prefId,
+							(Serializable) newValue, this, false, getSelectedAppMode());
+				}
+				return false;
+			}
 		}
-
 		return true;
+	}
+
+	@Override
+	public void onDisplayPreferenceDialog(Preference preference) {
+		String prefId = preference.getKey();
+		if (settings.SAVE_TRACK_MIN_DISTANCE.getId().equals(prefId)
+				|| settings.SAVE_TRACK_PRECISION.getId().equals(prefId)
+				|| settings.SAVE_TRACK_MIN_SPEED.getId().equals(prefId)) {
+			FragmentManager fm = getFragmentManager();
+			if (fm != null) {
+				ApplicationMode appMode = getSelectedAppMode();
+				SingleSelectPreferenceBottomSheet.showInstance(fm, prefId, this, false, appMode, true, true);
+			}
+		} else {
+			super.onDisplayPreferenceDialog(preference);
+		}
+	}
+
+	@Override
+	public void copyAppModePrefs(ApplicationMode appMode) {
+		OsmandMonitoringPlugin plugin = OsmandPlugin.getPlugin(OsmandMonitoringPlugin.class);
+		if (plugin != null) {
+			app.getSettings().copyProfilePreferences(appMode, getSelectedAppMode(), plugin.getPreferences());
+			updateAllSettings();
+		}
+	}
+
+	@Override
+	public void resetAppModePrefs(ApplicationMode appMode) {
+		OsmandMonitoringPlugin plugin = OsmandPlugin.getPlugin(OsmandMonitoringPlugin.class);
+		if (plugin != null) {
+			app.getSettings().resetProfilePreferences(appMode, plugin.getPreferences());
+			app.showToastMessage(R.string.plugin_prefs_reset_successful);
+			updateAllSettings();
+		}
+	}
+
+	@Override
+	public void onSettingApplied(String prefId, boolean appliedToAllProfiles) {
+		if (settings.SAVE_GLOBAL_TRACK_INTERVAL.getId().equals(prefId)) {
+			if (appliedToAllProfiles) {
+				app.getSettings().setPreferenceForAllModes(settings.SAVE_GLOBAL_TRACK_REMEMBER.getId(), true);
+			} else {
+				app.getSettings().setPreference(settings.SAVE_GLOBAL_TRACK_REMEMBER.getId(), true, getSelectedAppMode());
+			}
+
+		}
 	}
 }

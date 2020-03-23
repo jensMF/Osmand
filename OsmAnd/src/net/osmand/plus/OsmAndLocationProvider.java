@@ -1,28 +1,7 @@
 package net.osmand.plus;
 
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import net.osmand.GeoidAltitudeCorrection;
-import net.osmand.PlatformUtil;
-import net.osmand.ResultMatcher;
-import net.osmand.access.NavigationInfo;
-import net.osmand.binary.GeocodingUtilities.GeocodingResult;
-import net.osmand.binary.RouteDataObject;
-import net.osmand.data.LatLon;
-import net.osmand.data.QuadPoint;
-import net.osmand.plus.OsmandSettings.OsmandPreference;
-import net.osmand.plus.TargetPointsHelper.TargetPoint;
-import net.osmand.plus.routing.RoutingHelper;
-import net.osmand.router.RouteSegmentResult;
-import net.osmand.util.MapUtils;
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -32,6 +11,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.GnssStatus;
 import android.location.GpsSatellite;
 import android.location.GpsStatus;
 import android.location.GpsStatus.Listener;
@@ -39,12 +19,36 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
-import android.support.v7.app.AlertDialog;
 import android.util.Log;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.ActivityCompat;
+
+import net.osmand.GeoidAltitudeCorrection;
+import net.osmand.PlatformUtil;
+import net.osmand.ResultMatcher;
+import net.osmand.access.NavigationInfo;
+import net.osmand.binary.GeocodingUtilities.GeocodingResult;
+import net.osmand.binary.RouteDataObject;
+import net.osmand.data.LatLon;
+import net.osmand.data.QuadPoint;
+import net.osmand.plus.TargetPointsHelper.TargetPoint;
+import net.osmand.plus.routing.RoutingHelper;
+import net.osmand.plus.routing.RoutingHelper.RouteSegmentSearchResult;
+import net.osmand.router.RouteSegmentResult;
+import net.osmand.util.MapUtils;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class OsmAndLocationProvider implements SensorEventListener {
 
@@ -127,7 +131,7 @@ public class OsmAndLocationProvider implements SensorEventListener {
 
 	private List<OsmAndLocationListener> locationListeners = new ArrayList<OsmAndLocationProvider.OsmAndLocationListener>();
 	private List<OsmAndCompassListener> compassListeners = new ArrayList<OsmAndLocationProvider.OsmAndCompassListener>();
-	private Listener gpsStatusListener;
+	private Object gpsStatusListener;
 	private float[] mRotationM = new float[9];
 
 
@@ -144,30 +148,17 @@ public class OsmAndLocationProvider implements SensorEventListener {
 			this.roads = roads;
 			startLocation = new net.osmand.Location(currentLocation);
 			long ms = System.currentTimeMillis();
-			if (ms - startLocation.getTime() > 5000 ||
-					ms < startLocation.getTime()) {
+			if (ms - startLocation.getTime() > 5000 || ms < startLocation.getTime()) {
 				startLocation.setTime(ms);
 			}
-			currentRoad = -1;
-			int px = MapUtils.get31TileNumberX(currentLocation.getLongitude());
-			int py = MapUtils.get31TileNumberY(currentLocation.getLatitude());
-			double dist = 1000;
-			for (int i = 0; i < roads.size(); i++) {
-				RouteSegmentResult road = roads.get(i);
-				boolean plus = road.getStartPointIndex() < road.getEndPointIndex();
-				for (int j = road.getStartPointIndex() + 1; j <= road.getEndPointIndex(); ) {
-					RouteDataObject obj = road.getObject();
-					QuadPoint proj = MapUtils.getProjectionPoint31(px, py, obj.getPoint31XTile(j - 1), obj.getPoint31YTile(j - 1),
-							obj.getPoint31XTile(j), obj.getPoint31YTile(j));
-					double dd = MapUtils.squareRootDist31((int) proj.x, (int) proj.y, px, py);
-					if (dd < dist) {
-						dist = dd;
-						currentRoad = i;
-						currentSegment = j;
-						currentPoint = proj;
-					}
-					j += plus ? 1 : -1;
-				}
+			RouteSegmentSearchResult searchResult =
+					RoutingHelper.searchRouteSegment(currentLocation.getLatitude(), currentLocation.getLongitude(), -1, roads);
+			if (searchResult != null) {
+				currentRoad = searchResult.getRoadIndex();
+				currentSegment = searchResult.getSegmentIndex();
+				currentPoint = searchResult.getPoint();
+			} else {
+				currentRoad = -1;
 			}
 		}
 
@@ -249,7 +240,7 @@ public class OsmAndLocationProvider implements SensorEventListener {
 			}
 		}
 		if (isLocationPermissionAvailable(app)) {
-			service.addGpsStatusListener(getGpsStatusListener(service));
+			registerGpsStatusListener(service);
 			try {
 				service.requestLocationUpdates(LocationManager.GPS_PROVIDER, GPS_TIMEOUT_REQUEST, GPS_DIST_REQUEST, gpsListener);
 			} catch (IllegalArgumentException e) {
@@ -291,17 +282,55 @@ public class OsmAndLocationProvider implements SensorEventListener {
 		}		
 	}
 
-	private Listener getGpsStatusListener(final LocationManager service) {
-		gpsStatusListener = new Listener() {
-			private GpsStatus gpsStatus;
-			@Override
-			public void onGpsStatusChanged(int event) {
-				gpsStatus = service.getGpsStatus(gpsStatus);
-				updateGPSInfo(gpsStatus);
-				updateLocation(location);
-			}
-		};
-		return gpsStatusListener;
+	private void registerGpsStatusListener(final LocationManager service) {
+		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			gpsStatusListener = new GnssStatus.Callback() {
+
+				@Override
+				public void onStarted() {
+				}
+
+				@Override
+				public void onStopped() {
+				}
+
+				@Override
+				public void onFirstFix(int ttffMillis) {
+				}
+
+				@Override
+				public void onSatelliteStatusChanged(GnssStatus status) {
+					int satCount = 0;
+					boolean fixed = false;
+					int u = 0;
+					if(status != null) {
+						satCount = status.getSatelliteCount();
+						for (int i = 0; i < satCount; i++) {
+							if (status.usedInFix(i)) {
+								u++;
+								fixed = true;
+							}
+						}
+					}
+					gpsInfo.fixed = fixed;
+					gpsInfo.foundSatellites = satCount;
+					gpsInfo.usedSatellites = u;
+					updateLocation(location);
+				}
+			};
+			service.registerGnssStatusCallback((GnssStatus.Callback) gpsStatusListener);
+		} else {
+			gpsStatusListener = new Listener() {
+				private GpsStatus gpsStatus;
+				@Override
+				public void onGpsStatusChanged(int event) {
+					gpsStatus = service.getGpsStatus(gpsStatus);
+					updateGPSInfo(gpsStatus);
+					updateLocation(location);
+				}
+			};
+			service.addGpsStatusListener((Listener) gpsStatusListener);
+		}
 	}
 	
 	private void updateGPSInfo(GpsStatus s) {
@@ -642,7 +671,13 @@ public class OsmAndLocationProvider implements SensorEventListener {
 
 	private void stopLocationRequests() {
 		LocationManager service = (LocationManager) app.getSystemService(Context.LOCATION_SERVICE);
-		service.removeGpsStatusListener(gpsStatusListener);
+		if(gpsStatusListener != null) {
+			if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+				service.unregisterGnssStatusCallback((GnssStatus.Callback) gpsStatusListener);
+			} else {
+				service.removeGpsStatusListener((Listener) gpsStatusListener);
+			}
+		}
 		service.removeUpdates(gpsListener);
 		while(!networkListeners.isEmpty()) {
 			service.removeUpdates(networkListeners.poll());
@@ -974,5 +1009,13 @@ public class OsmAndLocationProvider implements SensorEventListener {
 			return false;
 		}
 		return true;
+	}
+
+	public static void requestFineLocationPermissionIfNeeded(Activity activity) {
+		if (!isLocationPermissionAvailable(activity)) {
+			ActivityCompat.requestPermissions(activity,
+					new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+					OsmAndLocationProvider.REQUEST_LOCATION_PERMISSION);
+		}
 	}
 }

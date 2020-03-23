@@ -1,18 +1,19 @@
 package net.osmand.plus.mapmarkers.adapters;
 
-import android.support.design.widget.Snackbar;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import net.osmand.AndroidUtils;
-import net.osmand.plus.OsmAndFormatter;
-import net.osmand.plus.UiUtilities;
+import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.snackbar.Snackbar;
+
 import net.osmand.plus.MapMarkersHelper.MapMarker;
+import net.osmand.plus.OsmAndFormatter;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
+import net.osmand.plus.UiUtilities;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -118,7 +119,8 @@ public class MapMarkersHistoryAdapter extends RecyclerView.Adapter<RecyclerView.
 			final MapMarker marker = (MapMarker) getItem(position);
 			itemViewHolder.iconReorder.setVisibility(View.GONE);
 
-			int color = R.color.icon_color_default_dark;
+			int color = night ? R.color.icon_color_default_dark : R.color.icon_color_default_light;
+			int actionIconColor = night ? R.color.icon_color_primary_dark : R.color.icon_color_primary_light;
 			itemViewHolder.icon.setImageDrawable(iconsCache.getIcon(R.drawable.ic_action_flag_dark, color));
 
 			itemViewHolder.title.setText(marker.getName(app));
@@ -134,7 +136,7 @@ public class MapMarkersHistoryAdapter extends RecyclerView.Adapter<RecyclerView.
 			itemViewHolder.description.setText(desc);
 
 			itemViewHolder.optionsBtn.setBackgroundDrawable(app.getResources().getDrawable(night ? R.drawable.marker_circle_background_dark_with_inset : R.drawable.marker_circle_background_light_with_inset));
-			itemViewHolder.optionsBtn.setImageDrawable(iconsCache.getThemedIcon(R.drawable.ic_action_reset_to_default_dark));
+			itemViewHolder.optionsBtn.setImageDrawable(iconsCache.getIcon(R.drawable.ic_action_reset_to_default_dark, actionIconColor));
 			itemViewHolder.optionsBtn.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View view) {
@@ -151,8 +153,7 @@ public class MapMarkersHistoryAdapter extends RecyclerView.Adapter<RecyclerView.
 									app.getMapMarkersHelper().moveMapMarkerToHistory(marker);
 								}
 							});
-					AndroidUtils.setSnackbarTextColor(snackbar, night ? R.color.active_color_primary_dark : R.color.active_color_primary_light);
-					snackbar.getView().setBackgroundColor(ContextCompat.getColor(app, night ? R.color.list_background_color_dark : R.color.list_background_color_light));
+					UiUtilities.setupSnackbar(snackbar, night);
 					snackbar.show();
 				}
 			});

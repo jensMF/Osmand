@@ -1,12 +1,9 @@
 package net.osmand.plus.activities.actions;
 
 import android.app.Activity;
-import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
-import android.support.annotation.LayoutRes;
-import android.support.v4.content.ContextCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,6 +13,9 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
 
+import androidx.annotation.LayoutRes;
+import androidx.core.content.ContextCompat;
+
 import net.osmand.AndroidUtils;
 import net.osmand.PlatformUtil;
 import net.osmand.plus.ApplicationMode;
@@ -23,10 +23,11 @@ import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandSettings;
 import net.osmand.plus.R;
 
+import org.apache.commons.logging.Log;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import org.apache.commons.logging.Log;
 
 public class AppModeDialog {
 
@@ -117,7 +118,7 @@ public class AppModeDialog {
 			ImageView iv = (ImageView) tb.findViewById(R.id.app_mode_icon);
 			if (checked) {
 				iv.setImageDrawable(ctx.getUIUtilities().getIcon(mode.getIconRes(), mode.getIconColorInfo().getColor(nightMode)));
-				iv.setContentDescription(String.format("%s %s", mode.toHumanString(ctx), ctx.getString(R.string.item_checked)));
+				iv.setContentDescription(String.format("%s %s", mode.toHumanString(), ctx.getString(R.string.item_checked)));
 				selection.setBackgroundResource(mode.getIconColorInfo().getColor(nightMode));
 				selection.setVisibility(View.VISIBLE);
 			} else {
@@ -127,7 +128,7 @@ public class AppModeDialog {
 				} else {
 					iv.setImageDrawable(ctx.getUIUtilities().getThemedIcon(mode.getIconRes()));
 				}
-				iv.setContentDescription(String.format("%s %s", mode.toHumanString(ctx), ctx.getString(R.string.item_unchecked)));
+				iv.setContentDescription(String.format("%s %s", mode.toHumanString(), ctx.getString(R.string.item_unchecked)));
 				selection.setVisibility(View.INVISIBLE);
 			}
 			iv.setOnClickListener(new View.OnClickListener() {
@@ -170,7 +171,7 @@ public class AppModeDialog {
 			Drawable drawable = ctx.getUIUtilities().getIcon(mode.getIconRes(), mode.getIconColorInfo().getColor(nightMode));
 			if (checked) {
 				iv.setImageDrawable(drawable);
-				iv.setContentDescription(String.format("%s %s", mode.toHumanString(ctx), ctx.getString(R.string.item_checked)));
+				iv.setContentDescription(String.format("%s %s", mode.toHumanString(), ctx.getString(R.string.item_checked)));
 				if (Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP) {
 					AndroidUtils.setBackground(ctx, iv, nightMode, R.drawable.btn_checked_border_light, R.drawable.btn_checked_border_light);
 					AndroidUtils.setBackground(ctx, selection, nightMode, R.drawable.ripple_light, R.drawable.ripple_light);
@@ -193,7 +194,7 @@ public class AppModeDialog {
 				} else {
 					iv.setImageDrawable(ctx.getUIUtilities().getIcon(mode.getIconRes(), mode.getIconColorInfo().getColor(nightMode)));
 				}
-				iv.setContentDescription(String.format("%s %s", mode.toHumanString(ctx), ctx.getString(R.string.item_unchecked)));
+				iv.setContentDescription(String.format("%s %s", mode.toHumanString(), ctx.getString(R.string.item_unchecked)));
 			}
 			tb.setOnClickListener(new View.OnClickListener() {
 
@@ -229,7 +230,7 @@ public class AppModeDialog {
 		View tb = layoutInflater.inflate(layoutId, null);
 		ImageView iv = (ImageView) tb.findViewById(R.id.app_mode_icon);
 		iv.setImageDrawable(ctx.getUIUtilities().getIcon(mode.getIconRes(), mode.getIconColorInfo().getColor(isNightMode(ctx, useMapTheme))));
-		iv.setContentDescription(mode.toHumanString(ctx));
+		iv.setContentDescription(mode.toHumanString());
 //		tb.setCompoundDrawablesWithIntrinsicBounds(null, ctx.getIconsCache().getIcon(mode.getIconId(), R.color.app_mode_icon_color), null, null);
 		LayoutParams lp = new LinearLayout.LayoutParams(metricsX, metricsY);
 //		lp.setMargins(left, 0, 0, 0);

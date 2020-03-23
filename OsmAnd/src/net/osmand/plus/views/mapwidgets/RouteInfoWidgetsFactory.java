@@ -15,17 +15,17 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.hardware.GeomagneticField;
 import android.os.BatteryManager;
-import android.support.annotation.NonNull;
-import android.support.v4.content.ContextCompat;
 import android.text.format.DateFormat;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
+
 import net.osmand.AndroidUtils;
 import net.osmand.Location;
-import net.osmand.StateChangedListener;
 import net.osmand.binary.RouteDataObject;
 import net.osmand.data.LatLon;
 import net.osmand.data.RotatedTileBox;
@@ -342,7 +342,7 @@ public class RouteInfoWidgetsFactory {
 			@Override
 			public boolean updateInfo(DrawSettings drawSettings) {
 				long time = System.currentTimeMillis();
-				if(time - cachedLeftTime > 5000) {
+				if (isUpdateNeeded() || time - cachedLeftTime > 5000) {
 					cachedLeftTime = time;
 					if (DateFormat.is24HourFormat(ctx)) {
 						setText(DateFormat.format("k:mm", time).toString(), null); //$NON-NLS-1$
@@ -372,7 +372,7 @@ public class RouteInfoWidgetsFactory {
 			@Override
 			public boolean updateInfo(DrawSettings drawSettings) {
 				long time = System.currentTimeMillis();
-				if (time - cachedLeftTime > 1000) {
+				if (isUpdateNeeded() || time - cachedLeftTime > 1000) {
 					cachedLeftTime = time;
 					Intent batteryIntent = ctx.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
 					int level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
@@ -407,7 +407,7 @@ public class RouteInfoWidgetsFactory {
 			@Override
 			public boolean updateInfo(DrawSettings drawSettings) {
 				float mx = 0; 
-				if ((rh == null || !rh.isFollowingMode() || rh.isDeviatedFromRoute() || rh.getCurrentGPXRoute() != null)
+				if ((rh == null || !rh.isFollowingMode() || rh.isDeviatedFromRoute() || !rh.isCurrentGPXRouteV2())
 						&& trackingUtilities.isMapLinkedToLocation()) {
 					RouteDataObject ro = locationProvider.getLastKnownRouteSegment();
 					if(ro != null) {
@@ -418,7 +418,7 @@ public class RouteInfoWidgetsFactory {
 				} else {
 					mx = 0f;
 				}
-				if (cachedSpeed != mx) {
+				if (isUpdateNeeded() || cachedSpeed != mx) {
 					cachedSpeed = mx;
 					if (cachedSpeed == 0) {
 						setText(null, null);
@@ -436,6 +436,11 @@ public class RouteInfoWidgetsFactory {
 					return true;
 				}
 				return false;
+			}
+
+			@Override
+			public boolean isMetricSystemDepended() {
+				return true;
 			}
 		};
 		speedControl.setIcons(R.drawable.widget_max_speed_day, R.drawable.widget_max_speed_night);
@@ -463,7 +468,7 @@ public class RouteInfoWidgetsFactory {
 					if (cachedSpeed < 6) {
 						minDelta = .015f;
 					}
-					if (Math.abs(loc.getSpeed() - cachedSpeed) > minDelta) {
+					if (isUpdateNeeded() || Math.abs(loc.getSpeed() - cachedSpeed) > minDelta) {
 						cachedSpeed = loc.getSpeed();
 						String ds = OsmAndFormatter.getFormattedSpeed(cachedSpeed, app);
 						int ls = ds.lastIndexOf(' ');
@@ -480,6 +485,11 @@ public class RouteInfoWidgetsFactory {
 					return true;
 				}
 				return false;
+			}
+
+			@Override
+			public boolean isMetricSystemDepended() {
+				return true;
 			}
 		};
 		speedControl.setIcons(R.drawable.widget_speed_day, R.drawable.widget_speed_night);
@@ -521,7 +531,7 @@ public class RouteInfoWidgetsFactory {
 		@Override
 		public boolean updateInfo(DrawSettings drawSettings) {
 			int d = getDistance();
-			if (distChanged(cachedMeters, d)) {
+			if (isUpdateNeeded() || distChanged(cachedMeters, d)) {
 				cachedMeters = d;
 				if (cachedMeters <= 20) {
 					cachedMeters = 0;
@@ -538,6 +548,11 @@ public class RouteInfoWidgetsFactory {
 				return true;
 			}
 			return false;
+		}
+
+		@Override
+		public boolean isMetricSystemDepended() {
+			return true;
 		}
 
 		public abstract LatLon getPointToNavigate();
@@ -664,17 +679,6 @@ public class RouteInfoWidgetsFactory {
 		final TextInfoWidget bearingControl = new TextInfoWidget(map) {
 			private int cachedDegrees;
 			private float MIN_SPEED_FOR_HEADING = 1f;
-			private boolean angularUnitTypeChanged = false;
-			private StateChangedListener<OsmandSettings.AngularConstants> listener = new StateChangedListener<OsmandSettings.AngularConstants>() {
-				@Override
-				public void stateChanged(OsmandSettings.AngularConstants change) {
-					angularUnitTypeChanged = true;
-				}
-			};
-			
-			{
-				getOsmandApplication().getSettings().ANGULAR_UNITS.addListener(listener);
-			}
 
 			private LatLon getNextTargetPoint() {
 				List<TargetPoint> points = getOsmandApplication().getTargetPointsHelper().getIntermediatePointsWithTarget();
@@ -687,8 +691,7 @@ public class RouteInfoWidgetsFactory {
 				boolean modeChanged = setIcons(relative ? relativeBearingResId : bearingResId, relative ? relativeBearingNightResId : bearingNightResId);
 				setContentTitle(relative ? R.string.map_widget_bearing : R.string.map_widget_magnetic_bearing);
 				int b = getBearing(relative);
-				if (angularUnitTypeChanged || degreesChanged(cachedDegrees, b) || modeChanged) {
-					angularUnitTypeChanged = false;
+				if (isUpdateNeeded() || degreesChanged(cachedDegrees, b) || modeChanged) {
 					cachedDegrees = b;
 					if (b != -1000) {
 						setText(OsmAndFormatter.getFormattedAzimuth(b, getOsmandApplication()) + (relative ? "" : " M"), null);
@@ -698,6 +701,11 @@ public class RouteInfoWidgetsFactory {
 					return true;
 				}
 				return false;
+			}
+
+			@Override
+			public boolean isAngularUnitsDepended() {
+				return true;
 			}
 
 			public int getBearing(boolean relative) {
@@ -803,7 +811,7 @@ public class RouteInfoWidgetsFactory {
 			int[] loclanes = null;
 			int dist = 0;
 			// TurnType primary = null;
-			if ((rh == null || !rh.isFollowingMode() || rh.isDeviatedFromRoute() || rh.getCurrentGPXRoute() != null)
+			if ((rh == null || !rh.isFollowingMode() || rh.isDeviatedFromRoute() || !rh.isCurrentGPXRouteV2())
 					&& trackingUtilities.isMapLinkedToLocation() && settings.SHOW_LANES.get()) {
 				RouteDataObject ro = locationProvider.getLastKnownRouteSegment();
 				Location lp = locationProvider.getLastKnownLocation();
@@ -1264,7 +1272,7 @@ public class RouteInfoWidgetsFactory {
 			if ((rh.isFollowingMode() || trackingUtilities.isMapLinkedToLocation())
 					&& showRoutingAlarms && (trafficWarnings || cams)) {
 				AlarmInfo alarm;
-				if(rh.isFollowingMode() && !rh.isDeviatedFromRoute() && rh.getCurrentGPXRoute() == null) {
+				if(rh.isFollowingMode() && !rh.isDeviatedFromRoute() && (rh.getCurrentGPXRoute() == null || rh.isCurrentGPXRouteV2())) {
 					alarm = wh.getMostImportantAlarm(settings.SPEED_SYSTEM.get(), cams);
 				} else {
 					RouteDataObject ro = locationProvider.getLastKnownRouteSegment();

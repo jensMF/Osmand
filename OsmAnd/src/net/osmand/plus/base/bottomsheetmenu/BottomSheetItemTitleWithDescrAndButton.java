@@ -2,15 +2,15 @@ package net.osmand.plus.base.bottomsheetmenu;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.ColorRes;
-import android.support.annotation.LayoutRes;
-import android.support.annotation.Nullable;
-import android.support.v4.content.ContextCompat;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import net.osmand.plus.OsmandApplication;
+import androidx.annotation.ColorRes;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+
 import net.osmand.plus.R;
 
 public class BottomSheetItemTitleWithDescrAndButton extends BottomSheetItemWithDescription {
@@ -32,7 +32,7 @@ public class BottomSheetItemTitleWithDescrAndButton extends BottomSheetItemWithD
 												  int position,
 												  Drawable icon,
 												  Drawable background,
-												  String title,
+												  CharSequence title,
 												  @ColorRes int titleColorId,
 												  CharSequence description,
 												  @ColorRes int descriptionColorId,

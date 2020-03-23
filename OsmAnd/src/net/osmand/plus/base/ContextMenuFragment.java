@@ -7,13 +7,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.IdRes;
-import android.support.annotation.LayoutRes;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.app.FragmentManager;
-import android.support.v7.view.ContextThemeWrapper;
 import android.text.ClipboardManager;
 import android.util.TypedValue;
 import android.view.GestureDetector;
@@ -32,6 +25,14 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.OverScroller;
 import android.widget.Toast;
+
+import androidx.annotation.IdRes;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.view.ContextThemeWrapper;
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
 
 import net.osmand.AndroidUtils;
 import net.osmand.Location;
@@ -57,7 +58,8 @@ public abstract class ContextMenuFragment extends BaseOsmAndFragment {
 	}
 
 	public static final int ANIMATION_DURATION = 200;
-	public static final float MIDDLE_STATE_KOEF = .75f;
+	public static final float MIDDLE_STATE_KOEF = .7f;
+	public static final int MIDDLE_STATE_MIN_HEIGHT_DP = 520;
 	public static final String MENU_STATE_KEY = "menu_state_key";
 
 	private InterceptorLinearLayout mainView;
@@ -294,7 +296,7 @@ public abstract class ContextMenuFragment extends BaseOsmAndFragment {
 		}
 
 		processScreenHeight(container);
-		minHalfY = viewHeight - (int) (viewHeight * MIDDLE_STATE_KOEF);
+		minHalfY = getMinHalfY(mapActivity);
 
 		final GestureDetector swipeDetector = new GestureDetector(app, new HorizontalSwipeConfirm(true));
 
@@ -597,8 +599,13 @@ public abstract class ContextMenuFragment extends BaseOsmAndFragment {
 		if (mapActivity != null) {
 			screenHeight = container.getHeight() + statusBarHeight;
 			viewHeight = screenHeight - statusBarHeight;
-			minHalfY = viewHeight - (int) (viewHeight * MIDDLE_STATE_KOEF);
+			minHalfY = getMinHalfY(mapActivity);
 		}
+	}
+
+	private int getMinHalfY(MapActivity mapActivity) {
+		return viewHeight - (int) Math.min(viewHeight * MIDDLE_STATE_KOEF,
+				MIDDLE_STATE_MIN_HEIGHT_DP * mapActivity.getMapView().getDensity() );
 	}
 
 	public boolean isMoving() {
@@ -742,12 +749,17 @@ public abstract class ContextMenuFragment extends BaseOsmAndFragment {
 		int newMenuState = getCurrentMenuState();
 		boolean needMapAdjust = currentMenuState != newMenuState && newMenuState != MenuState.FULL_SCREEN;
 
+		updateMenuState(currentMenuState, newMenuState);
+
 		applyPosY(currentY, needCloseMenu, needMapAdjust, currentMenuState, newMenuState, 0, animated);
 
 		ContextMenuFragmentListener listener = this.listener;
 		if (listener != null) {
 			listener.onContextMenuStateChanged(this, newMenuState);
 		}
+	}
+
+	protected void updateMenuState(int currentMenuState, int newMenuState) {
 	}
 
 
@@ -925,11 +937,9 @@ public abstract class ContextMenuFragment extends BaseOsmAndFragment {
 		if (isSingleFragment()) {
 			FragmentActivity activity = getActivity();
 			if (activity != null) {
-				try {
-					activity.getSupportFragmentManager().popBackStack(getFragmentTag(),
-							FragmentManager.POP_BACK_STACK_INCLUSIVE);
-				} catch (Exception e) {
-					//
+				FragmentManager fragmentManager = activity.getSupportFragmentManager();
+				if (!fragmentManager.isStateSaved()) {
+					fragmentManager.popBackStack(getFragmentTag(), FragmentManager.POP_BACK_STACK_INCLUSIVE);
 				}
 			}
 		}

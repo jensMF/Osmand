@@ -4,7 +4,8 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.os.AsyncTask;
-import android.support.annotation.NonNull;
+
+import androidx.annotation.NonNull;
 
 import net.osmand.PlatformUtil;
 import net.osmand.plus.OsmandApplication;
@@ -76,7 +77,7 @@ public class PerformLiveUpdateAsyncTask
 		final OsmandApplication application = getMyApplication();
 		final OsmandSettings settings = application.getSettings();
 		if (result.errorMessage != null) {
-			LOG.info(result.errorMessage);
+			LOG.info("Error message: " + result.errorMessage);
 			if (userRequested) {
 				application.showShortToastMessage(result.errorMessage);
 			}
@@ -84,8 +85,8 @@ public class PerformLiveUpdateAsyncTask
 		} else {
 			settings.LIVE_UPDATES_RETRIES.resetToDefault();
 			List<IncrementalChangesManager.IncrementalUpdate> ll = result.getItemsForUpdate();
+			LOG.debug("Updates quantity: " + (ll == null ? "null" : ll.size()));
 			if (ll != null && !ll.isEmpty()) {
-				LOG.debug("Updates quantity: " + ll.size());
 				ArrayList<IndexItem> itemsToDownload = new ArrayList<>(ll.size());
 				for (IncrementalChangesManager.IncrementalUpdate iu : ll) {
 					IndexItem indexItem = new IndexItem(iu.fileName, "Incremental update",

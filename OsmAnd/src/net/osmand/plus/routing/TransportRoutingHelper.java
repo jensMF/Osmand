@@ -1,8 +1,9 @@
 package net.osmand.plus.routing;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.util.Pair;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import net.osmand.Location;
 import net.osmand.PlatformUtil;
@@ -452,7 +453,7 @@ public class TransportRoutingHelper {
 		}
 
 		private List<TransportRouteResult> calculateRouteImpl(TransportRouteCalculationParams params) throws IOException, InterruptedException {
-			RoutingConfiguration.Builder config = params.ctx.getRoutingConfig();
+			RoutingConfiguration.Builder config = params.ctx.getRoutingConfigForMode(params.mode);
 			BinaryMapIndexReader[] files = params.ctx.getResourceManager().getTransportRoutingMapFiles();
 			params.params.clear();
 			OsmandSettings settings = params.ctx.getSettings();
@@ -471,7 +472,8 @@ public class TransportRoutingHelper {
 					params.params.put(key, vl);
 				}
 			}
-			TransportRoutingConfiguration cfg = new TransportRoutingConfiguration(config, params.params);
+			GeneralRouter prouter = config.getRouter(params.mode.getRoutingProfile());
+			TransportRoutingConfiguration cfg = new TransportRoutingConfiguration(prouter, params.params);
 			TransportRoutePlanner planner = new TransportRoutePlanner();
 			TransportRoutingContext ctx = new TransportRoutingContext(cfg, files);
 			ctx.calculationProgress =  params.calculationProgress;

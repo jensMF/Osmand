@@ -12,6 +12,7 @@ import org.xmlpull.v1.XmlSerializer;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,6 +43,8 @@ import java.util.TimeZone;
 
 public class GPXUtilities {
 	public final static Log log = PlatformUtil.getLog(GPXUtilities.class);
+	private static final String ICON_NAME_EXTENSION = "icon";
+	private static final String DEFAULT_ICON_NAME = "special_star";
 
 	private final static String GPX_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss'Z'"; //$NON-NLS-1$
 	private final static String GPX_TIME_FORMAT_MILLIS = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"; //$NON-NLS-1$
@@ -92,14 +95,31 @@ public class GPXUtilities {
 		}
 	}
 
+	public interface GPXExtensionsWriter {
+		public void writeExtensions(XmlSerializer serializer);
+	}
+
+	public interface GPXExtensionsReader {
+		public boolean readExtensions(GPXFile res, XmlPullParser parser) throws Exception;
+	}
+
 	public static class GPXExtensions {
 		Map<String, String> extensions = null;
+		GPXExtensionsWriter extensionsWriter = null;
 
 		public Map<String, String> getExtensionsToRead() {
 			if (extensions == null) {
 				return Collections.emptyMap();
 			}
 			return extensions;
+		}
+
+		public GPXExtensionsWriter getExtensionsWriter() {
+			return extensionsWriter;
+		}
+
+		public void setExtensionsWriter(GPXExtensionsWriter extensionsWriter) {
+			this.extensionsWriter = extensionsWriter;
 		}
 
 		public int getColor(int defColor) {
@@ -255,6 +275,18 @@ public class GPXUtilities {
 
 		public boolean isVisible() {
 			return true;
+		}
+
+		public String getIconName() {
+			String iconName = getExtensionsToRead().get(ICON_NAME_EXTENSION);
+			if (iconName == null) {
+				iconName = DEFAULT_ICON_NAME;
+			}
+			return iconName;
+		}
+
+		public void setIconName(String iconName) {
+			getExtensionsToWrite().put(ICON_NAME_EXTENSION, iconName);
 		}
 
 		@Override
@@ -1543,6 +1575,8 @@ public class GPXUtilities {
 				serializer.endTag(null, "wpt"); //$NON-NLS-1$
 			}
 
+			writeExtensions(serializer, file);
+
 			serializer.endTag(null, "gpx"); //$NON-NLS-1$
 			serializer.endDocument();
 			serializer.flush();
@@ -1584,10 +1618,17 @@ public class GPXUtilities {
 	}
 
 	private static void writeExtensions(XmlSerializer serializer, GPXExtensions p) throws IOException {
-		if (!p.getExtensionsToRead().isEmpty()) {
+		Map<String, String> extensionsToRead = p.getExtensionsToRead();
+		GPXExtensionsWriter extensionsWriter = p.getExtensionsWriter();
+		if (!extensionsToRead.isEmpty() || extensionsWriter != null) {
 			serializer.startTag(null, "extensions");
-			for (Entry<String, String> s : p.getExtensionsToRead().entrySet()) {
-				writeNotNullText(serializer, s.getKey(), s.getValue());
+			if (!extensionsToRead.isEmpty()) {
+				for (Entry<String, String> s : extensionsToRead.entrySet()) {
+					writeNotNullText(serializer, s.getKey(), s.getValue());
+				}
+			}
+			if (extensionsWriter != null) {
+				extensionsWriter.writeExtensions(serializer);
 			}
 			serializer.endTag(null, "extensions");
 		}
@@ -1763,7 +1804,23 @@ public class GPXUtilities {
 	}
 
 	public static GPXFile loadGPXFile(InputStream f) {
-		GPXFile res = new GPXFile(null);
+		return loadGPXFile(f, null, null);
+	}
+
+	public static GPXFile loadGPXFile(InputStream f, GPXFile gpxFile, GPXExtensionsReader extensionsReader) {
+		boolean readExtensionsOnly = false;
+		if (gpxFile == null) {
+			gpxFile = new GPXFile(null);
+		} else {
+			if (f == null) {
+				try {
+					f = new FileInputStream(new File(gpxFile.path));
+				} catch (FileNotFoundException e) {
+					return gpxFile;
+				}
+			}
+			readExtensionsOnly = extensionsReader != null;
+		}
 		SimpleDateFormat format = new SimpleDateFormat(GPX_TIME_FORMAT, Locale.US);
 		format.setTimeZone(TimeZone.getTimeZone("UTC"));
 		SimpleDateFormat formatMillis = new SimpleDateFormat(GPX_TIME_FORMAT_MILLIS, Locale.US);
@@ -1771,51 +1828,61 @@ public class GPXUtilities {
 		try {
 			XmlPullParser parser = PlatformUtil.newXMLPullParser();
 			parser.setInput(getUTF8Reader(f));
+			Track routeTrack = new Track();
+			TrkSegment routeTrackSegment = new TrkSegment();
+			routeTrack.segments.add(routeTrackSegment);
 			Stack<GPXExtensions> parserState = new Stack<>();
 			boolean extensionReadMode = false;
-			boolean parseExtension = false;
-			boolean endOfTrkSegment = false;
-			parserState.push(res);
+			boolean routePointExtension = false;
+			parserState.push(gpxFile);
 			int tok;
 			while ((tok = parser.next()) != XmlPullParser.END_DOCUMENT) {
 				if (tok == XmlPullParser.START_TAG) {
 					GPXExtensions parse = parserState.peek();
 					String tag = parser.getName();
-					if (extensionReadMode && parse != null && !parseExtension) {
-						switch (tag.toLowerCase()) {
-							case "routepointextension":
-								parseExtension = true;
-								Track track = new Track();
-								res.tracks.add(track);
-								GPXExtensions parent = parserState.size() > 1 ? parserState.get(parserState.size() - 2) : null;
-								if (parse instanceof WptPt && parent instanceof Route) {
-									track.getExtensionsToWrite().putAll(parent.getExtensionsToRead());
-									track.getExtensionsToWrite().putAll(parse.getExtensionsToRead());
-								}
-								parserState.push(track);
-								break;
+					if (extensionReadMode && parse != null && !routePointExtension) {
+						String tagName = tag.toLowerCase();
+						boolean extensionsRead = false;
+						if (extensionsReader != null) {
+							extensionsRead = extensionsReader.readExtensions(gpxFile, parser);
+						}
+						if (!readExtensionsOnly && !extensionsRead) {
+							switch (tagName) {
+								case "routepointextension":
+									routePointExtension = true;
+									if (parse instanceof WptPt) {
+										parse.getExtensionsToWrite().put("offset", routeTrackSegment.points.size() + "");
+									}
+									break;
 
-							default:
-								Map<String, String> values = readTextMap(parser, tag);
-								if (values.size() > 0) {
-									for (Entry<String, String> entry : values.entrySet()) {
-										String t = entry.getKey().toLowerCase();
-										String value = entry.getValue();
-										parse.getExtensionsToWrite().put(t, value);
-										if (tag.equals("speed") && parse instanceof WptPt) {
-											try {
-												((WptPt) parse).speed = Float.parseFloat(value);
-											} catch (NumberFormatException e) {
-												log.debug(e.getMessage(), e);
+								default:
+									Map<String, String> values = readTextMap(parser, tag);
+									if (values.size() > 0) {
+										for (Entry<String, String> entry : values.entrySet()) {
+											String t = entry.getKey().toLowerCase();
+											String value = entry.getValue();
+											parse.getExtensionsToWrite().put(t, value);
+											if (tag.equals("speed") && parse instanceof WptPt) {
+												try {
+													((WptPt) parse).speed = Float.parseFloat(value);
+												} catch (NumberFormatException e) {
+													log.debug(e.getMessage(), e);
+												}
 											}
 										}
 									}
-								}
-								break;
+									break;
+							}
 						}
 					} else if (parse != null && tag.equals("extensions")) {
 						extensionReadMode = true;
-					} else {
+					} else if (routePointExtension) {
+						if (tag.equals("rpt")) {
+							WptPt wptPt = parseWptAttributes(parser);
+							routeTrackSegment.points.add(wptPt);
+							parserState.push(wptPt);
+						}
+					} else if (!readExtensionsOnly) {
 						if (parse instanceof GPXFile) {
 							if (tag.equals("gpx")) {
 								((GPXFile) parse).author = parser.getAttributeValue("", "creator");
@@ -1920,16 +1987,6 @@ public class GPXUtilities {
 								((Track) parse).segments.add(trkSeg);
 								parserState.push(trkSeg);
 							}
-							if (tag.equals("rpt")) {
-								endOfTrkSegment = false;
-								TrkSegment trkSeg = new TrkSegment();
-								((Track) parse).segments.add(trkSeg);
-								parserState.push(trkSeg);
-								WptPt wptPt = parseWptAttributes(parser);
-								parse = parserState.peek();
-								((TrkSegment) parse).points.add(wptPt);
-								parserState.push(wptPt);
-							}
 						} else if (parse instanceof TrkSegment) {
 							if (tag.equals("trkpt") || tag.equals("rpt")) {
 								WptPt wptPt = parseWptAttributes(parser);
@@ -1998,8 +2055,6 @@ public class GPXUtilities {
 							} else if (tag.equals("time")) {
 								String text = readText(parser, "time");
 								((WptPt) parse).time = parseTime(text, format, formatMillis);
-							} else if (tag.toLowerCase().equals("subclass")) {
-								endOfTrkSegment = true;
 							}
 						}
 					}
@@ -2009,12 +2064,13 @@ public class GPXUtilities {
 					String tag = parser.getName();
 
 					if (tag.toLowerCase().equals("routepointextension")) {
-						parseExtension = false;
-						Object pop = parserState.pop();
-						assert pop instanceof Track;
+						routePointExtension = false;
 					}
 					if (parse != null && tag.equals("extensions")) {
 						extensionReadMode = false;
+					}
+					if (readExtensionsOnly) {
+						continue;
 					}
 
 					if (tag.equals("metadata")) {
@@ -2053,26 +2109,17 @@ public class GPXUtilities {
 					} else if (tag.equals("rpt")) {
 						Object pop = parserState.pop();
 						assert pop instanceof WptPt;
-						if (endOfTrkSegment) {
-							Object popSegment = parserState.pop();
-							if (popSegment instanceof TrkSegment) {
-								List<TrkSegment> segments = res.tracks.get(res.tracks.size() - 1).segments;
-								int last = segments.size() - 1;
-								if (!Algorithms.isEmpty(segments) && segments.get(last).points.size() < 2) {
-									segments.remove(last);
-								}
-							}
-							endOfTrkSegment = false;
-						}
 					}
 				}
 			}
+			if (!routeTrackSegment.points.isEmpty()) {
+				gpxFile.tracks.add(routeTrack);
+			}
 		} catch (Exception e) {
-			res.error = e;
+			gpxFile.error = e;
 			log.error("Error reading gpx", e); //$NON-NLS-1$
 		}
-
-		return res;
+		return gpxFile;
 	}
 
 	private static Reader getUTF8Reader(InputStream f) throws IOException {

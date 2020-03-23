@@ -6,11 +6,6 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.RecyclerView;
 import android.text.SpannableString;
 import android.util.Pair;
 import android.view.ContextThemeWrapper;
@@ -20,6 +15,12 @@ import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import net.osmand.AndroidUtils;
 import net.osmand.Location;
@@ -428,7 +429,7 @@ public class AddPointBottomSheetDialog extends MenuBottomSheetDialogFragment {
 					menu.selectMapMarker((MapMarker) item, pointType);
 					dismiss();
 				} else {
-					TargetPointsHelper helper = mapActivity.getMyApplication().getTargetPointsHelper();
+					TargetPointsHelper targetPointsHelper = mapActivity.getMyApplication().getTargetPointsHelper();
 					Pair<LatLon, PointDescription> pair = getLocationAndDescrFromItem(item);
 					LatLon ll = pair.first;
 					PointDescription name = pair.second;
@@ -442,13 +443,14 @@ public class AddPointBottomSheetDialog extends MenuBottomSheetDialogFragment {
 						FavouritesDbHelper favorites = requiredMyApplication().getFavorites();
 						switch (pointType) {
 							case START:
-								helper.setStartPoint(ll, true, name);
+								targetPointsHelper.setStartPoint(ll, true, name);
 								break;
 							case TARGET:
-								helper.navigateToPoint(ll, true, -1, name);
+								targetPointsHelper.navigateToPoint(ll, true, -1, name);
+								OsmAndLocationProvider.requestFineLocationPermissionIfNeeded(mapActivity);
 								break;
 							case INTERMEDIATE:
-								helper.navigateToPoint(ll, true, helper.getIntermediatePoints().size(), name);
+								targetPointsHelper.navigateToPoint(ll, true, targetPointsHelper.getIntermediatePoints().size(), name);
 								break;
 							case HOME:
 								favorites.setSpecialPoint(ll, FavouritePoint.SpecialPointType.HOME, null);

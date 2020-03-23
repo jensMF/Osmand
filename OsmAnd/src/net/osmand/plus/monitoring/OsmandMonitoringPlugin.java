@@ -4,11 +4,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
-import android.support.annotation.Nullable;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.widget.AppCompatCheckBox;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
@@ -17,6 +12,12 @@ import android.widget.LinearLayout.LayoutParams;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.AppCompatCheckBox;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
 
 import net.osmand.AndroidUtils;
 import net.osmand.Location;
@@ -63,6 +64,19 @@ public class OsmandMonitoringPlugin extends OsmandPlugin {
 		final List<ApplicationMode> am = ApplicationMode.allPossibleValues();
 		ApplicationMode.regWidgetVisibility("monitoring", am.toArray(new ApplicationMode[am.size()]));
 		settings = app.getSettings();
+		pluginPreferences.add(settings.SAVE_TRACK_TO_GPX);
+		pluginPreferences.add(settings.SAVE_TRACK_INTERVAL);
+		pluginPreferences.add(settings.SAVE_TRACK_MIN_DISTANCE);
+		pluginPreferences.add(settings.SAVE_TRACK_PRECISION);
+		pluginPreferences.add(settings.AUTO_SPLIT_RECORDING);
+		pluginPreferences.add(settings.DISABLE_RECORDING_ONCE_APP_KILLED);
+		pluginPreferences.add(settings.SAVE_HEADING_TO_GPX);
+		pluginPreferences.add(settings.SHOW_TRIP_REC_NOTIFICATION);
+		pluginPreferences.add(settings.TRACK_STORAGE_DIRECTORY);
+		pluginPreferences.add(settings.LIVE_MONITORING);
+		pluginPreferences.add(settings.LIVE_MONITORING_URL);
+		pluginPreferences.add(settings.LIVE_MONITORING_INTERVAL);
+		pluginPreferences.add(settings.LIVE_MONITORING_MAX_INTERVAL_TO_SEND);
 	}
 
 	@Override
@@ -275,7 +289,7 @@ public class OsmandMonitoringPlugin extends OsmandPlugin {
 
 	public void controlDialog(final Activity activity, final boolean showTrackSelection) {
 		final boolean wasTrackMonitored = settings.SAVE_GLOBAL_TRACK_TO_GPX.get();
-		boolean nightMode;
+		final boolean nightMode;
 		if (activity instanceof MapActivity) {
 			nightMode = app.getDaynightHelper().isNightModeForMapControls();
 		} else {
@@ -297,6 +311,7 @@ public class OsmandMonitoringPlugin extends OsmandPlugin {
 		}
 		if (app.getSavingTrackHelper().hasDataToSave()) {
 			items.add(R.string.save_current_track);
+			items.add(R.string.clear_recorded_data);
 		}
 		String[] strings = new String[items.size()];
 		for (int i = 0; i < strings.length; i++) {
@@ -313,6 +328,18 @@ public class OsmandMonitoringPlugin extends OsmandPlugin {
 					if (app.getLocationProvider().checkGPSEnabled(activity)) {
 						startGPXMonitoring(activity, showTrackSelection);
 					}
+				} else if (item == R.string.clear_recorded_data) {
+					AlertDialog.Builder builder = new AlertDialog.Builder(UiUtilities.getThemedContext(activity, nightMode));
+					builder.setTitle(R.string.clear_recorded_data);
+					builder.setMessage(R.string.are_you_sure);
+					builder.setNegativeButton(R.string.shared_string_cancel, null).setPositiveButton(
+							R.string.shared_string_ok, new DialogInterface.OnClickListener() {
+								@Override
+								public void onClick(DialogInterface dialog, int which) {
+									app.getSavingTrackHelper().clearRecordedData(true);
+								}
+							});
+					builder.show();
 				} else if(item == R.string.gpx_monitoring_stop) {
 					stopRecording();
 				} else if(item == R.string.gpx_start_new_segment) {
@@ -325,12 +352,12 @@ public class OsmandMonitoringPlugin extends OsmandPlugin {
 					showIntervalChooseDialog(activity, app.getString(R.string.live_monitoring_interval) + " : %s",
 							app.getString(R.string.save_track_to_gpx_globally), SECONDS, MINUTES,
 							null, vs, showTrackSelection, new OnClickListener() {
-						@Override
-						public void onClick(DialogInterface dialog, int which) {
-							settings.LIVE_MONITORING_INTERVAL.set(vs.value);
-							settings.LIVE_MONITORING.set(true);
-						}
-					});
+								@Override
+								public void onClick(DialogInterface dialog, int which) {
+									settings.LIVE_MONITORING_INTERVAL.set(vs.value);
+									settings.LIVE_MONITORING.set(true);
+								}
+							});
 				}
 				if (monitoringControl != null) {
 					monitoringControl.updateInfo(null);
@@ -540,19 +567,18 @@ public class OsmandMonitoringPlugin extends OsmandPlugin {
 		ll.addView(sp);
 		if (choice != null) {
 			final AppCompatCheckBox cb = new AppCompatCheckBox(uiCtx);
-			cb.setText(R.string.shared_string_remember_my_choice);
+			cb.setText(R.string.confirm_every_run);
 			cb.setTextColor(textColorPrimary);
 			LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,
 					LayoutParams.WRAP_CONTENT);
 			lp.setMargins(dp24, dp8, dp24, 0);
 			cb.setLayoutParams(lp);
 			cb.setPadding(dp8, 0, 0, 0);
+			cb.setChecked(!choice.value);
 			cb.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-
 				@Override
 				public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-					choice.value = isChecked;
-
+					choice.value = !isChecked;
 				}
 			});
 			UiUtilities.setupCompoundButton(cb, nightMode, PROFILE_DEPENDENT);

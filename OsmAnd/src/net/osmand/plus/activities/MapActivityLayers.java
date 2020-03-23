@@ -3,10 +3,6 @@ package net.osmand.plus.activities;
 
 import android.content.DialogInterface;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.Nullable;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.view.ContextThemeWrapper;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -14,15 +10,20 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.view.ContextThemeWrapper;
+import androidx.core.content.ContextCompat;
+
 import net.osmand.CallbackWithObject;
+import net.osmand.GPXUtilities.GPXFile;
+import net.osmand.GPXUtilities.WptPt;
 import net.osmand.ResultMatcher;
 import net.osmand.StateChangedListener;
 import net.osmand.map.ITileSource;
 import net.osmand.map.TileSourceManager.TileSourceTemplate;
 import net.osmand.plus.ContextMenuAdapter;
 import net.osmand.plus.ContextMenuItem;
-import net.osmand.GPXUtilities.GPXFile;
-import net.osmand.GPXUtilities.WptPt;
 import net.osmand.plus.DialogListItemAdapter;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
@@ -35,7 +36,6 @@ import net.osmand.plus.helpers.GpxUiHelper;
 import net.osmand.plus.measurementtool.MeasurementToolLayer;
 import net.osmand.plus.poi.PoiFiltersHelper;
 import net.osmand.plus.poi.PoiUIFilter;
-import net.osmand.plus.quickaction.QuickActionRegistry;
 import net.osmand.plus.rastermaps.OsmandRasterMapsPlugin;
 import net.osmand.plus.render.MapVectorLayer;
 import net.osmand.plus.render.RenderingIcons;
@@ -92,7 +92,6 @@ public class MapActivityLayers {
 	private MapQuickActionLayer mapQuickActionLayer;
 	private DownloadedRegionsLayer downloadedRegionsLayer;
 	private MapWidgetRegistry mapWidgetRegistry;
-	private QuickActionRegistry quickActionRegistry;
 	private MeasurementToolLayer measurementToolLayer;
 	
 	private StateChangedListener<Integer> transparencyListener;
@@ -100,11 +99,6 @@ public class MapActivityLayers {
 	public MapActivityLayers(MapActivity activity) {
 		this.activity = activity;
 		this.mapWidgetRegistry = new MapWidgetRegistry(activity.getMyApplication());
-		this.quickActionRegistry = new QuickActionRegistry(activity.getMyApplication().getSettings());
-	}
-
-	public QuickActionRegistry getQuickActionRegistry() {
-		return quickActionRegistry;
 	}
 
 	public MapWidgetRegistry getMapWidgetRegistry() {
@@ -276,10 +270,7 @@ public class MapActivityLayers {
 		final PoiFiltersHelper poiFilters = app.getPoiFilters();
 		final ContextMenuAdapter adapter = new ContextMenuAdapter();
 		final List<PoiUIFilter> list = new ArrayList<>();
-		for (PoiUIFilter f : poiFilters.getTopDefinedPoiFilters()) {
-			addFilterToList(adapter, list, f, true);
-		}
-		for (PoiUIFilter f : poiFilters.getSearchPoiFilters()) {
+		for (PoiUIFilter f : poiFilters.getSortedPoiFilters(true)) {
 			addFilterToList(adapter, list, f, true);
 		}
 		list.add(poiFilters.getCustomPOIFilter());
@@ -357,10 +348,7 @@ public class MapActivityLayers {
 				.setIcon(R.drawable.ic_action_search_dark).createItem());
 		final List<PoiUIFilter> list = new ArrayList<>();
 		list.add(poiFilters.getCustomPOIFilter());
-		for (PoiUIFilter f : poiFilters.getTopDefinedPoiFilters()) {
-			addFilterToList(adapter, list, f, false);
-		}
-		for (PoiUIFilter f : poiFilters.getSearchPoiFilters()) {
+		for (PoiUIFilter f : poiFilters.getSortedPoiFilters(true)) {
 			addFilterToList(adapter, list, f, false);
 		}
 
@@ -528,7 +516,7 @@ public class MapActivityLayers {
 										return false;
 									}
 
-								});
+								}, null);
 								break;
 							case layerInstallMore:
 								OsmandRasterMapsPlugin.installMapLayers(activity, new ResultMatcher<TileSourceTemplate>() {

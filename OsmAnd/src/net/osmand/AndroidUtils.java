@@ -4,6 +4,7 @@ package net.osmand;
 import android.app.Activity;
 import android.app.KeyguardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -23,15 +24,6 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.StatFs;
-import android.support.annotation.AttrRes;
-import android.support.annotation.ColorInt;
-import android.support.annotation.ColorRes;
-import android.support.annotation.NonNull;
-import android.support.design.widget.Snackbar;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.content.FileProvider;
-import android.support.v4.text.TextUtilsCompat;
-import android.support.v4.view.ViewCompat;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
@@ -47,6 +39,7 @@ import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.ViewTreeObserver;
 import android.view.inputmethod.InputMethodManager;
@@ -54,13 +47,22 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
+import androidx.annotation.AttrRes;
+import androidx.annotation.ColorInt;
+import androidx.annotation.ColorRes;
+import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
+import androidx.core.text.TextUtilsCompat;
+import androidx.core.view.ViewCompat;
+
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
-import net.osmand.plus.download.DownloadActivity;
 import net.osmand.util.Algorithms;
 
 import java.io.File;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -157,6 +159,17 @@ public class AndroidUtils {
 		} else {
 			return FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
 		}
+	}
+
+	public static boolean isIntentSafe(Context context, Intent intent) {
+		return intent.resolveActivity(context.getPackageManager()) != null;
+	}
+
+	public static boolean isActivityNotDestroyed(Activity activity) {
+		if (Build.VERSION.SDK_INT >= 17) {
+			return !activity.isFinishing() && !activity.isDestroyed();
+		}
+		return !activity.isFinishing();
 	}
 
 	public static Spannable replaceCharsWithIcon(String text, Drawable icon, String[] chars) {
@@ -264,6 +277,17 @@ public class AndroidUtils {
 				lightNormal, lightChecked, darkNormal, darkChecked);
 	}
 
+	public static ColorStateList createEnabledColorStateList(Context ctx, @ColorRes int normal, @ColorRes int pressed) {
+		return createEnabledColorStateList(ctx, false, normal, pressed, 0, 0);
+	}
+
+	public static ColorStateList createEnabledColorStateList(Context ctx, boolean night,
+	                                                         @ColorRes int lightNormal, @ColorRes int lightPressed,
+	                                                         @ColorRes int darkNormal, @ColorRes int darkPressed) {
+		return createColorStateList(ctx, night, android.R.attr.state_enabled,
+				lightNormal, lightPressed, darkNormal, darkPressed);
+	}
+
 	public static ColorStateList createPressedColorStateList(Context ctx, @ColorRes int normal, @ColorRes int pressed) {
 		return createPressedColorStateList(ctx, false, normal, pressed, 0, 0);
 	}
@@ -298,6 +322,10 @@ public class AndroidUtils {
 		return createStateListDrawable(normal, pressed, android.R.attr.state_pressed);
 	}
 
+	public static StateListDrawable createEnabledStateListDrawable(Drawable disabled, Drawable enabled) {
+		return createStateListDrawable(disabled, enabled, android.R.attr.state_enabled);
+	}
+
 	private static StateListDrawable createStateListDrawable(Drawable normal, Drawable stateDrawable, int state) {
 		StateListDrawable res = new StateListDrawable();
 		res.addState(new int[]{state}, stateDrawable);
@@ -321,18 +349,6 @@ public class AndroidUtils {
 		res.setId(1, android.R.id.progress);
 
 		return res;
-	}
-
-	public static void setSnackbarTextColor(Snackbar snackbar, @ColorRes int colorId) {
-		View view = snackbar.getView();
-		TextView tv = (TextView) view.findViewById(android.support.design.R.id.snackbar_action);
-		tv.setTextColor(ContextCompat.getColor(view.getContext(), colorId));
-	}
-
-	public static void setSnackbarTextMaxLines(Snackbar snackbar, int maxLines) {
-		View view = snackbar.getView();
-		TextView tv = (TextView) view.findViewById(android.support.design.R.id.snackbar_text);
-		tv.setMaxLines(maxLines);
 	}
 
 	public static void setBackground(Context ctx, View view, boolean night, int lightResId, int darkResId) {
@@ -636,6 +652,53 @@ public class AndroidUtils {
 		} else {
 			return baseString;
 		}
+	}
+
+	public static void setCompoundDrawablesWithIntrinsicBounds(@NonNull TextView tv, Drawable start, Drawable top, Drawable end, Drawable bottom){
+		if (isSupportRTL()) {
+			tv.setCompoundDrawablesRelativeWithIntrinsicBounds(start, top, end, bottom);
+		} else {
+			tv.setCompoundDrawablesWithIntrinsicBounds(start, top, end, bottom);
+		}
+	}
+
+	public static void setPadding(View view, int start, int top, int end, int bottom) {
+		if (isSupportRTL()) {
+			view.setPaddingRelative(start, top, end, bottom);
+		} else {
+			view.setPadding(start, top, end, bottom);
+		}
+	}
+
+	public static void setMargins(ViewGroup.MarginLayoutParams layoutParams, int start, int top, int end, int bottom) {
+		layoutParams.setMargins(start, top, end, bottom);
+		if (isSupportRTL()) {
+			layoutParams.setMarginStart(start);
+			layoutParams.setMarginEnd(end);
+		}
+	}
+	
+	public static int getLayoutDirection(@NonNull Context ctx) {
+		Locale currentLocale = ctx.getResources().getConfiguration().locale;
+		return TextUtilsCompat.getLayoutDirectionFromLocale(currentLocale);
+	}
+
+	public static int getNavigationIconResId(@NonNull Context ctx) {
+		return getLayoutDirection(ctx) == ViewCompat.LAYOUT_DIRECTION_RTL ?
+				R.drawable.ic_arrow_forward : R.drawable.ic_arrow_back;
+	}
+
+	public static boolean isSupportRTL() {
+		return Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1;
+	}
+
+	public static ArrayList<View> getChildrenViews(ViewGroup vg) {
+		ArrayList<View> result = new ArrayList<>();
+		for (int i = 0; i < vg.getChildCount(); i++) {
+			View child = vg.getChildAt(i);
+			result.add(child);
+		}
+		return result;
 	}
 
 	public static float getFreeSpaceGb(File dir) {

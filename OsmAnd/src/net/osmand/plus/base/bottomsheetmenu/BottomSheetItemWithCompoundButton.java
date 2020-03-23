@@ -3,16 +3,16 @@ package net.osmand.plus.base.bottomsheetmenu;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.ColorRes;
-import android.support.annotation.LayoutRes;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.widget.CompoundButtonCompat;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 
-import net.osmand.plus.OsmandApplication;
+import androidx.annotation.ColorRes;
+import androidx.annotation.LayoutRes;
+import androidx.core.content.ContextCompat;
+import androidx.core.widget.CompoundButtonCompat;
+
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 
@@ -37,7 +37,7 @@ public class BottomSheetItemWithCompoundButton extends BottomSheetItemWithDescri
 											 int position,
 											 Drawable icon,
 											 Drawable background,
-											 String title,
+											 CharSequence title,
 											 @ColorRes int titleColorId,
 											 CharSequence description,
 											 @ColorRes int descriptionColorId,

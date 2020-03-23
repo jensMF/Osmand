@@ -3,17 +3,8 @@ package net.osmand.plus.quickaction;
 import android.content.DialogInterface;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.design.widget.FloatingActionButton;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.view.MotionEventCompat;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.Toolbar;
-import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -24,13 +15,27 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
+import androidx.core.view.MotionEventCompat;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
+import net.osmand.AndroidUtils;
+import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.base.BaseOsmAndFragment;
 import net.osmand.plus.views.controls.ReorderItemTouchHelperCallback;
-import net.osmand.plus.views.controls.ReorderItemTouchHelperCallback.UnmovableItem;
 import net.osmand.plus.views.controls.ReorderItemTouchHelperCallback.OnItemMoveCallback;
+import net.osmand.plus.views.controls.ReorderItemTouchHelperCallback.UnmovableItem;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -73,6 +78,10 @@ public class QuickActionListFragment extends BaseOsmAndFragment implements Quick
             }
         });
 
+        if (Build.VERSION.SDK_INT >= 21) {
+            AndroidUtils.addStatusBarPadding21v(getContext(), view);
+        }
+
         return view;
     }
 
@@ -80,7 +89,7 @@ public class QuickActionListFragment extends BaseOsmAndFragment implements Quick
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        quickActionRegistry = getMapActivity().getMapLayers().getQuickActionRegistry();
+        quickActionRegistry = getMyApplication().getQuickActionRegistry();
 
         setUpToolbar(view);
         setUpQuickActionRV();
@@ -114,9 +123,10 @@ public class QuickActionListFragment extends BaseOsmAndFragment implements Quick
 
     private void setUpToolbar(View view) {
         Toolbar toolbar = (Toolbar) view.findViewById(R.id.custom_toolbar);
-        Drawable back = getMyApplication().getUIUtilities().getIcon(R.drawable.ic_arrow_back,
+        OsmandApplication app = requireMyApplication();
+        Drawable icBack = app.getUIUtilities().getIcon(AndroidUtils.getNavigationIconResId(app),
                 isLightContent ? R.color.active_buttons_and_links_text_light : R.color.active_buttons_and_links_text_dark);
-        toolbar.setNavigationIcon(back);
+        toolbar.setNavigationIcon(icBack);
         toolbar.setNavigationContentDescription(R.string.access_shared_string_navigate_up);
         toolbar.setNavigationOnClickListener(new View.OnClickListener() {
             @Override
@@ -143,11 +153,6 @@ public class QuickActionListFragment extends BaseOsmAndFragment implements Quick
 
         getMapActivity().enableDrawer();
         quickActionRegistry.setUpdatesListener(null);
-    }
-
-    @Override
-    protected boolean isFullScreenAllowed() {
-        return false;
     }
 
     @Override

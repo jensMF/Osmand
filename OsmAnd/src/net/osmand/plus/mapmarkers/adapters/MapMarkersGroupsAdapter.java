@@ -1,22 +1,23 @@
 package net.osmand.plus.mapmarkers.adapters;
 
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.design.widget.Snackbar;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
 
-import net.osmand.AndroidUtils;
-import net.osmand.IndexConstants;
-import net.osmand.data.LatLon;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.snackbar.Snackbar;
+
 import net.osmand.GPXUtilities;
 import net.osmand.GPXUtilities.GPXFile;
+import net.osmand.IndexConstants;
+import net.osmand.data.LatLon;
 import net.osmand.plus.GpxSelectionHelper;
 import net.osmand.plus.GpxSelectionHelper.SelectedGpxFile;
 import net.osmand.plus.MapMarkersHelper;
@@ -272,6 +273,7 @@ public class MapMarkersGroupsAdapter extends RecyclerView.Adapter<RecyclerView.V
 			}
 			ImageView markerImageViewToUpdate;
 			int drawableResToUpdate;
+			int actionIconColor = night ? R.color.icon_color_primary_dark : R.color.icon_color_primary_light;
 			final boolean markerToHighlight = showDirectionMarkers.contains(marker);
 			if (showDirectionEnabled && markerToHighlight) {
 				itemViewHolder.iconDirection.setVisibility(View.GONE);
@@ -294,8 +296,7 @@ public class MapMarkersGroupsAdapter extends RecyclerView.Adapter<RecyclerView.V
 				itemViewHolder.title.setTextColor(ContextCompat.getColor(mapActivity, night ? R.color.text_color_primary_dark : R.color.text_color_primary_light));
 				itemViewHolder.divider.setBackgroundColor(ContextCompat.getColor(mapActivity, night ? R.color.app_bar_color_dark : R.color.divider_color_light));
 				itemViewHolder.optionsBtn.setBackgroundDrawable(mapActivity.getResources().getDrawable(night ? R.drawable.marker_circle_background_dark_with_inset : R.drawable.marker_circle_background_light_with_inset));
-				itemViewHolder.optionsBtn.setImageDrawable(iconsCache.getIcon(markerInHistory ? R.drawable.ic_action_reset_to_default_dark : R.drawable.ic_action_marker_passed,
-						night ? R.color.icon_color_primary_dark : R.color.active_buttons_and_links_text_light));
+				itemViewHolder.optionsBtn.setImageDrawable(iconsCache.getIcon(markerInHistory ? R.drawable.ic_action_reset_to_default_dark : R.drawable.ic_action_marker_passed, actionIconColor));
 				itemViewHolder.description.setTextColor(ContextCompat.getColor(mapActivity, night ? R.color.icon_color_default_dark : R.color.icon_color_default_light));
 
 				drawableResToUpdate = R.drawable.ic_direction_arrow;
@@ -354,8 +355,7 @@ public class MapMarkersGroupsAdapter extends RecyclerView.Adapter<RecyclerView.V
 										updateDisplayedData();
 									}
 								});
-						AndroidUtils.setSnackbarTextColor(snackbar, night ? R.color.active_color_primary_dark : R.color.active_color_primary_light);
-						snackbar.getView().setBackgroundColor(ContextCompat.getColor(app, night ? R.color.list_background_color_dark : R.color.list_background_color_light));
+						UiUtilities.setupSnackbar(snackbar, night);
 						snackbar.show();
 					}
 				}
@@ -490,7 +490,7 @@ public class MapMarkersGroupsAdapter extends RecyclerView.Adapter<RecyclerView.V
 											mapMarkersHelper.enableGroup(group);
 										}
 									});
-							AndroidUtils.setSnackbarTextColor(snackbar, R.color.active_color_primary_dark);
+							UiUtilities.setupSnackbar(snackbar, night);
 							snackbar.show();
 						}
 					}
@@ -498,6 +498,7 @@ public class MapMarkersGroupsAdapter extends RecyclerView.Adapter<RecyclerView.V
 				headerViewHolder.disableGroupSwitch.setOnCheckedChangeListener(null);
 				headerViewHolder.disableGroupSwitch.setChecked(!groupIsDisabled);
 				headerViewHolder.disableGroupSwitch.setOnCheckedChangeListener(checkedChangeListener);
+				UiUtilities.setupCompoundButton(headerViewHolder.disableGroupSwitch, night, UiUtilities.CompoundButtonType.GLOBAL);
 			} else {
 				throw new IllegalArgumentException("Unsupported header");
 			}

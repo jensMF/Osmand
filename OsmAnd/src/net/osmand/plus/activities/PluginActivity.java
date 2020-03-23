@@ -7,8 +7,6 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
@@ -16,14 +14,19 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.R;
 import net.osmand.plus.chooseplan.ChoosePlanDialogFragment;
+import net.osmand.plus.dialogs.PluginInstalledBottomSheetDialog;
 import net.osmand.plus.download.DownloadIndexesThread;
 import net.osmand.plus.srtmplugin.SRTMPlugin;
 
-public class PluginActivity extends OsmandActionBarActivity  implements DownloadIndexesThread.DownloadEvents {
+public class PluginActivity extends OsmandActionBarActivity  implements DownloadIndexesThread.DownloadEvents, PluginInstalledBottomSheetDialog.PluginStateListener {
 	private static final String TAG = "PluginActivity";
 	public static final String EXTRA_PLUGIN_ID = "plugin_id";
 
@@ -213,5 +216,10 @@ public class PluginActivity extends OsmandActionBarActivity  implements Download
 				((DownloadIndexesThread.DownloadEvents) fragment).downloadHasFinished();
 			}
 		}
+	}
+
+	@Override
+	public void onPluginStateChanged(OsmandPlugin plugin) {
+		updateState();
 	}
 }

@@ -2,13 +2,14 @@ package net.osmand.plus.settings;
 
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.preference.Preference;
-import android.support.v7.widget.SwitchCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.TextView;
+
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentManager;
+import androidx.preference.Preference;
 
 import net.osmand.AndroidUtils;
 import net.osmand.plus.ApplicationMode;
@@ -30,6 +31,9 @@ public class LiveMonitoringFragment extends BaseSettingsFragment {
 
 	@Override
 	protected void setupPreferences() {
+		Preference liveMonitoringInfo = findPreference("live_monitoring_info");
+		liveMonitoringInfo.setIconSpaceReserved(false);
+
 		setupLiveMonitoringUrlPref();
 		setupLiveMonitoringIntervalPref();
 		setupLiveMonitoringBufferPref();
@@ -86,10 +90,18 @@ public class LiveMonitoringFragment extends BaseSettingsFragment {
 	}
 
 	private void setupLiveMonitoringUrlPref() {
+		ApplicationMode appMode = getSelectedAppMode();
+		String summary;
+		if (settings.LIVE_MONITORING_URL.isSetForMode(appMode)) {
+			summary = settings.LIVE_MONITORING_URL.getModeValue(appMode);
+		} else {
+			summary = getString(R.string.shared_string_disabled);
+		}
+
 		EditTextPreferenceEx liveMonitoringUrl = (EditTextPreferenceEx) findPreference(settings.LIVE_MONITORING_URL.getId());
-		liveMonitoringUrl.setSummary(settings.LIVE_MONITORING_URL.getModeValue(getSelectedAppMode()));
-		liveMonitoringUrl.setDescription(R.string.live_monitoring_m_descr);
-		liveMonitoringUrl.setIcon(getContentIcon(R.drawable.ic_world_globe_dark));
+		liveMonitoringUrl.setSummary(summary);
+		liveMonitoringUrl.setDescription(R.string.live_monitoring_adress_descr);
+		liveMonitoringUrl.setIcon(getPersistentPrefIcon(R.drawable.ic_world_globe_dark));
 	}
 
 	private void setupLiveMonitoringIntervalPref() {
@@ -110,7 +122,7 @@ public class LiveMonitoringFragment extends BaseSettingsFragment {
 		ListPreferenceEx liveMonitoringInterval = (ListPreferenceEx) findPreference(settings.LIVE_MONITORING_INTERVAL.getId());
 		liveMonitoringInterval.setEntries(entries);
 		liveMonitoringInterval.setEntryValues(entryValues);
-		liveMonitoringInterval.setIcon(getContentIcon(R.drawable.ic_action_time_span));
+		liveMonitoringInterval.setIcon(getPersistentPrefIcon(R.drawable.ic_action_time_span));
 		liveMonitoringInterval.setDescription(R.string.live_monitoring_interval_descr);
 	}
 
@@ -127,7 +139,7 @@ public class LiveMonitoringFragment extends BaseSettingsFragment {
 		ListPreferenceEx liveMonitoringBuffer = (ListPreferenceEx) findPreference(settings.LIVE_MONITORING_MAX_INTERVAL_TO_SEND.getId());
 		liveMonitoringBuffer.setEntries(entries);
 		liveMonitoringBuffer.setEntryValues(entryValues);
-		liveMonitoringBuffer.setIcon(getContentIcon(R.drawable.ic_action_time_span));
+		liveMonitoringBuffer.setIcon(getPersistentPrefIcon(R.drawable.ic_action_time_span));
 		liveMonitoringBuffer.setDescription(R.string.live_monitoring_max_interval_to_send_desrc);
 	}
 

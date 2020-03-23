@@ -1,9 +1,11 @@
 package net.osmand.plus.search;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.view.View;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import net.osmand.GPXUtilities;
 import net.osmand.binary.BinaryMapIndexReader;
 import net.osmand.binary.BinaryMapIndexReader.SearchPoiTypeFilter;
 import net.osmand.data.Amenity;
@@ -16,7 +18,6 @@ import net.osmand.osm.MapPoiTypes;
 import net.osmand.osm.PoiCategory;
 import net.osmand.plus.FavouritesDbHelper;
 import net.osmand.plus.FavouritesDbHelper.FavoriteGroup;
-import net.osmand.GPXUtilities;
 import net.osmand.plus.GpxSelectionHelper;
 import net.osmand.plus.OsmAndFormatter;
 import net.osmand.plus.OsmandApplication;
@@ -115,6 +116,12 @@ public class QuickSearchHelper implements ResourceListener {
 			core.addCustomSearchPoiFilter(localWikiPoiFilter, 1);
 		}
 		core.addCustomSearchPoiFilter(poiFilters.getShowAllPOIFilter(), 1);
+		refreshFilterOrders();
+	}
+
+	public void refreshFilterOrders() {
+		PoiFiltersHelper filtersHelper = app.getPoiFilters();
+		core.setFilterOrders(filtersHelper.getPoiFilterOrders(true));
 	}
 
 	public void setRepositoriesForSearchUICore(final OsmandApplication app) {

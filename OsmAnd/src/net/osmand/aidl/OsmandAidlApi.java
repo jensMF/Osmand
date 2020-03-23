@@ -15,9 +15,10 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v7.app.AlertDialog;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 
 import net.osmand.AndroidUtils;
 import net.osmand.CallbackWithObject;
@@ -40,6 +41,7 @@ import net.osmand.plus.AppInitializer.AppInitializeListener;
 import net.osmand.plus.AppInitializer.InitEvents;
 import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.ContextMenuAdapter;
+import net.osmand.plus.ContextMenuItem;
 import net.osmand.plus.FavouritesDbHelper;
 import net.osmand.plus.GPXDatabase.GpxDataItem;
 import net.osmand.plus.GpxSelectionHelper;
@@ -70,7 +72,6 @@ import net.osmand.plus.views.AidlMapLayer;
 import net.osmand.plus.views.MapInfoLayer;
 import net.osmand.plus.views.OsmandMapLayer;
 import net.osmand.plus.views.OsmandMapTileView;
-import net.osmand.plus.views.mapwidgets.MapWidgetRegistry.MapWidgetRegInfo;
 import net.osmand.plus.views.mapwidgets.TextInfoWidget;
 import net.osmand.router.TurnType;
 import net.osmand.util.Algorithms;
@@ -318,13 +319,11 @@ public class OsmandAidlApi {
 							ApplicationMode.regWidgetVisibility(widget.getId(), (ApplicationMode[]) null);
 							TextInfoWidget control = connectedApp.createWidgetControl(mapActivity, widgetId);
 							connectedApp.getWidgetControls().put(widgetId, control);
-							int menuIconId = AndroidUtils.getDrawableId(app, widget.getMenuIconName());
-							MapWidgetRegInfo widgetInfo = layer.registerSideWidget(control,
-									menuIconId, widget.getMenuTitle(), "aidl_widget_" + widgetId,
-									false, widget.getOrder());
-							if (!mapActivity.getMapLayers().getMapWidgetRegistry().isVisible(widgetInfo.key)) {
-								mapActivity.getMapLayers().getMapWidgetRegistry().setVisibility(widgetInfo, true, false);
-							}
+
+							int iconId = AndroidUtils.getDrawableId(app, widget.getMenuIconName());
+							int menuIconId = iconId != 0 ? iconId : ContextMenuItem.INVALID_ID;
+							String widgetKey = "aidl_widget_" + widgetId;
+							layer.registerSideWidget(control, menuIconId, widget.getMenuTitle(), widgetKey, false, widget.getOrder());
 							layer.recreateControls();
 						}
 					}
@@ -1117,7 +1116,7 @@ public class OsmandAidlApi {
 
 	@SuppressLint("StaticFieldLeak")
 	private void finishGpxImport(boolean destinationExists, File destination, String color, boolean show) {
-		int col = ConfigureMapMenu.GpxAppearanceAdapter.parseTrackColor(
+		final int col = ConfigureMapMenu.GpxAppearanceAdapter.parseTrackColor(
 				app.getRendererRegistry().getCurrentSelectedRenderer(), color);
 		if (!destinationExists) {
 			GpxDataItem gpxDataItem = new GpxDataItem(destination, col);
@@ -1143,6 +1142,9 @@ public class OsmandAidlApi {
 					@Override
 					protected void onPostExecute(GPXFile gpx) {
 						if (gpx.error == null) {
+							if (col != -1) {
+								gpx.setColor(col);
+							}
 							selectedGpx.setGpxFile(gpx, app);
 							refreshMap();
 						}

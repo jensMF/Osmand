@@ -6,13 +6,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.net.Uri;
-import android.support.annotation.ColorRes;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.IdRes;
-import android.support.annotation.LayoutRes;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.AppCompatImageView;
+import android.os.Build;
 import android.text.TextUtils;
 import android.view.ContextThemeWrapper;
 import android.view.View;
@@ -24,6 +18,14 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
+
+import androidx.annotation.ColorRes;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.IdRes;
+import androidx.annotation.LayoutRes;
+import androidx.appcompat.widget.AppCompatImageView;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
 
 import net.osmand.AndroidUtils;
 import net.osmand.PlatformUtil;
@@ -211,7 +213,7 @@ public class ContextMenuAdapter {
 				
 				TextView title = convertView.findViewById(R.id.title);
 				title.setText(item.getTitle());
-				
+
 				if (layoutId == R.layout.main_menu_drawer_btn_switch_profile) {
 					ImageView icon = convertView.findViewById(R.id.icon);
 					icon.setImageDrawable(mIconsCache.getIcon(item.getIcon(), colorResId));
@@ -336,7 +338,11 @@ public class ContextMenuAdapter {
 					int paddingInPixels = (int) (24 * density);
 					int drawableSizeInPixels = (int) (24 * density); // 32
 					drawable.setBounds(0, 0, drawableSizeInPixels, drawableSizeInPixels);
-					tv.setCompoundDrawables(drawable, null, null, null);
+					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+						tv.setCompoundDrawablesRelative(drawable, null, null, null);
+					} else {
+						tv.setCompoundDrawables(drawable, null, null, null);
+					}
 					tv.setCompoundDrawablePadding(paddingInPixels);
 				}
 			} else {

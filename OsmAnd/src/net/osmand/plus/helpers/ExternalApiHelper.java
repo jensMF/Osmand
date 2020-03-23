@@ -7,23 +7,24 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v7.app.AlertDialog;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+
+import net.osmand.GPXUtilities;
+import net.osmand.GPXUtilities.GPXFile;
 import net.osmand.IndexConstants;
 import net.osmand.Location;
 import net.osmand.PlatformUtil;
-import net.osmand.aidl.OsmandAidlApi;
 import net.osmand.aidl.AidlSearchResultWrapper;
+import net.osmand.aidl.OsmandAidlApi;
 import net.osmand.aidl.search.SearchParams;
 import net.osmand.data.FavouritePoint;
 import net.osmand.data.LatLon;
 import net.osmand.data.PointDescription;
 import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.FavouritesDbHelper;
-import net.osmand.GPXUtilities;
-import net.osmand.GPXUtilities.GPXFile;
 import net.osmand.plus.MapMarkersHelper;
 import net.osmand.plus.MapMarkersHelper.MapMarker;
 import net.osmand.plus.OsmandApplication;
@@ -92,6 +93,8 @@ public class ExternalApiHelper {
 
 	public static final String API_CMD_START_GPX_REC = "start_gpx_rec";
 	public static final String API_CMD_STOP_GPX_REC = "stop_gpx_rec";
+	public static final String API_CMD_SAVE_GPX = "save_gpx";
+	public static final String API_CMD_CLEAR_GPX = "clear_gpx";
 
 	public static final String API_CMD_SUBSCRIBE_VOICE_NOTIFICATIONS = "subscribe_voice_notifications";
 	public static final int VERSION_CODE = 1;
@@ -550,6 +553,30 @@ public class ExternalApiHelper {
 					plugin.stopRecording();
 				}
 
+				if (uri.getBooleanQueryParameter(PARAM_CLOSE_AFTER_COMMAND, true)) {
+					finish = true;
+				}
+				resultCode = Activity.RESULT_OK;
+			} else if (API_CMD_SAVE_GPX.equals(cmd)) {
+				OsmandMonitoringPlugin plugin = OsmandPlugin.getEnabledPlugin(OsmandMonitoringPlugin.class);
+				if (plugin == null) {
+					resultCode = RESULT_CODE_ERROR_PLUGIN_INACTIVE;
+					finish = true;
+				} else {
+					plugin.saveCurrentTrack();
+				}
+				if (uri.getBooleanQueryParameter(PARAM_CLOSE_AFTER_COMMAND, true)) {
+					finish = true;
+				}
+				resultCode = Activity.RESULT_OK;
+			} else if (API_CMD_CLEAR_GPX.equals(cmd)) {
+				OsmandMonitoringPlugin plugin = OsmandPlugin.getEnabledPlugin(OsmandMonitoringPlugin.class);
+				if (plugin == null) {
+					resultCode = RESULT_CODE_ERROR_PLUGIN_INACTIVE;
+					finish = true;
+				} else {
+					app.getSavingTrackHelper().clearRecordedData(true);
+				}
 				if (uri.getBooleanQueryParameter(PARAM_CLOSE_AFTER_COMMAND, true)) {
 					finish = true;
 				}

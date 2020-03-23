@@ -1,14 +1,14 @@
 package net.osmand.plus.base.bottomsheetmenu.simpleitems;
 
 import android.content.Context;
-import android.support.annotation.ColorRes;
-import android.support.v4.content.ContextCompat;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 
+import androidx.annotation.ColorRes;
+import androidx.core.content.ContextCompat;
+
 import net.osmand.AndroidUtils;
-import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.base.bottomsheetmenu.BaseBottomSheetItem;
 
@@ -39,10 +39,10 @@ public class DividerItem extends BaseBottomSheetItem {
 	public void inflate(Context context, ViewGroup container, boolean nightMode) {
 		super.inflate(context, container, nightMode);
 
-		int height = AndroidUtils.dpToPx(context, 1);
+		int height = getHeight(context);
 
 		LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) view.getLayoutParams();
-		params.setMargins(getLeftMargin(context), getTopMargin(context), 0, getBottomMargin(context));
+		AndroidUtils.setMargins(params, getStartMargin(context), getTopMargin(context), 0, getBottomMargin(context));
 		params.height = height;
 
 		view.setMinimumHeight(height);
@@ -53,7 +53,7 @@ public class DividerItem extends BaseBottomSheetItem {
 		return context.getResources().getDimensionPixelSize(R.dimen.bottom_sheet_content_padding_small);
 	}
 
-	protected int getLeftMargin(Context context) {
+	protected int getStartMargin(Context context) {
 		return 0;
 	}
 
@@ -61,8 +61,12 @@ public class DividerItem extends BaseBottomSheetItem {
 		return context.getResources().getDimensionPixelSize(R.dimen.bottom_sheet_content_padding_small);
 	}
 
+	protected int getHeight(Context ctx) {
+		return AndroidUtils.dpToPx(ctx, 1);
+	}
+
 	@ColorRes
-	private int getBgColorId(boolean nightMode) {
+	protected int getBgColorId(boolean nightMode) {
 		if (colorId != INVALID_ID) {
 			return colorId;
 		}

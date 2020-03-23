@@ -3,22 +3,25 @@ package net.osmand.plus.settings;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.support.annotation.ColorRes;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.app.FragmentManager;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceViewHolder;
 import android.view.View;
+
+import androidx.annotation.ColorRes;
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceViewHolder;
 
 import net.osmand.AndroidUtils;
 import net.osmand.CallbackWithObject;
 import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
-import net.osmand.plus.SettingsHelper.*;
+import net.osmand.plus.SettingsHelper.SettingsItem;
+import net.osmand.plus.SettingsHelper.SettingsItemType;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
+import net.osmand.plus.helpers.AndroidUiHelper;
 import net.osmand.plus.profiles.SelectProfileBottomSheetDialogFragment;
 import net.osmand.plus.profiles.SelectProfileBottomSheetDialogFragment.SelectProfileListener;
 import net.osmand.plus.settings.preferences.SwitchPreferenceEx;
@@ -88,9 +91,8 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 				AndroidUtils.setBackground(selectedProfile, backgroundDrawable);
 			}
 		}
-		if (ApplicationMode.DEFAULT.getStringKey().equals(preference.getKey())) {
-			holder.findViewById(R.id.switchWidget).setVisibility(View.GONE);
-		}
+		boolean visible = !ApplicationMode.DEFAULT.getStringKey().equals(key);
+		AndroidUiHelper.updateVisibility(holder.findViewById(R.id.switchWidget), visible);
 	}
 
 	@Override
@@ -118,6 +120,8 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 			Bundle bundle = new Bundle();
 			bundle.putString(DIALOG_TYPE, TYPE_BASE_APP_PROFILE);
 			dialog.setArguments(bundle);
+			dialog.setUsedOnMap(false);
+			dialog.setAppMode(getSelectedAppMode());
 			if (getActivity() != null) {
 				getActivity().getSupportFragmentManager().beginTransaction()
 						.add(dialog, "select_base_profile").commitAllowingStateLoss();
@@ -126,7 +130,7 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 			final MapActivity mapActivity = getMapActivity();
 			if (mapActivity != null) {
 				mapActivity.getImportHelper().chooseFileToImport(SETTINGS, new CallbackWithObject<List<SettingsItem>>() {
-					
+
 					@Override
 					public boolean processResult(List<SettingsItem> result) {
 						for (SettingsItem item : result) {
@@ -147,7 +151,7 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 
 	private void setupConfigureProfilePref() {
 		ApplicationMode selectedMode = app.getSettings().APPLICATION_MODE.get();
-		String title = selectedMode.toHumanString(getContext());
+		String title = selectedMode.toHumanString();
 		String profileType = getAppModeDescription(getContext(), selectedMode);
 		int iconRes = selectedMode.getIconRes();
 		Preference configureProfile = findPreference(CONFIGURE_PROFILE);
@@ -181,7 +185,7 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 			pref.setPersistent(false);
 			pref.setKey(applicationMode.getStringKey());
 			pref.setIcon(getAppProfilesIcon(applicationMode, isAppProfileEnabled));
-			pref.setTitle(applicationMode.toHumanString(getContext()));
+			pref.setTitle(applicationMode.toHumanString());
 			pref.setSummary(getAppModeDescription(getContext(), applicationMode));
 			pref.setChecked(isAppProfileEnabled);
 			pref.setLayoutResource(R.layout.preference_with_descr_dialog_and_switch);

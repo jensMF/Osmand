@@ -2,13 +2,16 @@ package net.osmand.plus.dialogs;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Typeface;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v4.app.FragmentManager;
+import android.text.SpannableString;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+
+import androidx.annotation.NonNull;
+import androidx.fragment.app.FragmentManager;
 
 import net.osmand.AndroidUtils;
 import net.osmand.PlatformUtil;
@@ -29,7 +32,9 @@ import net.osmand.plus.download.DownloadIndexesThread;
 import net.osmand.plus.download.DownloadValidationManager;
 import net.osmand.plus.download.IndexItem;
 import net.osmand.plus.helpers.AndroidUiHelper;
+import net.osmand.plus.helpers.FontCache;
 import net.osmand.plus.settings.BaseSettingsFragment;
+import net.osmand.plus.widgets.style.CustomTypefaceSpan;
 
 import org.apache.commons.logging.Log;
 
@@ -79,8 +84,12 @@ public class PluginInstalledBottomSheetDialog extends MenuBottomSheetDialogFragm
 				.create();
 		items.add(titleItem);
 
+		Typeface typeface = FontCache.getRobotoMedium(getContext());
+		SpannableString pluginTitleSpan = new SpannableString(plugin.getName());
+		pluginTitleSpan.setSpan(new CustomTypefaceSpan(typeface), 0, pluginTitleSpan.length(), 0);
+
 		BaseBottomSheetItem pluginTitle = new SimpleBottomSheetItem.Builder()
-				.setTitle(plugin.getName())
+				.setTitle(pluginTitleSpan)
 				.setTitleColorId(nightMode ? R.color.active_color_primary_dark : R.color.active_color_primary_light)
 				.setIcon(getContentIcon(R.drawable.ic_extension_dark))
 				.setLayoutId(R.layout.bottom_sheet_item_simple_56dp)
@@ -163,6 +172,20 @@ public class PluginInstalledBottomSheetDialog extends MenuBottomSheetDialogFragm
 	}
 
 	@Override
+	protected void onDismissButtonClickAction() {
+		OsmandApplication app = getMyApplication();
+		OsmandPlugin plugin = OsmandPlugin.getPlugin(pluginId);
+		if (app != null && plugin != null) {
+			Activity activity = getActivity();
+			OsmandPlugin.enablePlugin(activity, app, plugin, false);
+
+			if (activity instanceof PluginStateListener) {
+				((PluginStateListener) activity).onPluginStateChanged(plugin);
+			}
+		}
+	}
+
+	@Override
 	protected int getRightBottomButtonTextId() {
 		return R.string.shared_string_ok;
 	}
@@ -198,7 +221,7 @@ public class PluginInstalledBottomSheetDialog extends MenuBottomSheetDialogFragm
 			appModeItem[0] = (BottomSheetItemWithCompoundButton) new BottomSheetItemWithCompoundButton.Builder()
 					.setChecked(ApplicationMode.values(app).contains(mode))
 					.setDescription(BaseSettingsFragment.getAppModeDescription(app, mode))
-					.setTitle(mode.toHumanString(app))
+					.setTitle(mode.toHumanString())
 					.setIcon(getActiveIcon(mode.getIconRes()))
 					.setLayoutId(R.layout.bottom_sheet_item_with_descr_and_switch_56dp)
 					.setOnClickListener(new View.OnClickListener() {
@@ -306,5 +329,11 @@ public class PluginInstalledBottomSheetDialog extends MenuBottomSheetDialogFragm
 		} catch (RuntimeException e) {
 			LOG.error("showInstance", e);
 		}
+	}
+
+	public interface PluginStateListener {
+
+		void onPluginStateChanged(OsmandPlugin plugin);
+
 	}
 }

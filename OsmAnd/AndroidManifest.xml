@@ -51,7 +51,8 @@
 	<application android:allowBackup="true" android:backupAgent="net.osmand.plus.OsmandBackupAgent"
 		android:icon="@mipmap/icon" android:label="@string/app_name"
 		android:name="net.osmand.plus.OsmandApplication" android:configChanges="locale"
-		android:theme="@style/OsmandDarkTheme" android:restoreAnyVersion="true" android:largeHeap="true" android:usesCleartextTraffic="true">
+		android:theme="@style/OsmandDarkTheme" android:restoreAnyVersion="true" android:largeHeap="true" 
+		android:supportsRtl="true" android:usesCleartextTraffic="true">
 
 		<meta-data android:name="com.google.android.backup.api_key" android:value="AEdPqrEAAAAIqF3tNGT66etVBn_vgzpfAY1wmIzKV1Ss6Ku-2A" />
 		<meta-data android:name="com.sec.android.support.multiwindow" android:value="true" />
@@ -65,7 +66,7 @@
         <activity android:name="net.osmand.plus.activities.ExitActivity" />
         
         <provider
-            android:name="android.support.v4.content.FileProvider"
+            android:name="androidx.core.content.FileProvider"
             android:authorities="net.osmand.plus.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true" >
@@ -390,7 +391,6 @@
 		<activity android:name="net.osmand.plus.activities.SettingsGeneralActivity" android:configChanges="keyboardHidden|orientation" />
 		<activity android:name="net.osmand.plus.activities.SettingsNavigationActivity" android:configChanges="keyboardHidden|orientation" />
 		<activity android:name="net.osmand.plus.monitoring.SettingsMonitoringActivity" android:configChanges="keyboardHidden|orientation" />
-		<activity android:name="net.osmand.plus.rastermaps.SettingsRasterMapsActivity" android:configChanges="keyboardHidden|orientation" />
 
 		<activity android:name="net.osmand.plus.osmedit.SettingsOsmEditingActivity" android:configChanges="keyboardHidden|orientation" />
 		<activity android:name="net.osmand.plus.development.SettingsDevelopmentActivity" android:configChanges="keyboardHidden|orientation" />
@@ -984,15 +984,6 @@
 		</activity>
 
         <receiver android:name="net.osmand.plus.liveupdates.LiveUpdatesAlarmReceiver"/>
-
-		<activity
-			android:configChanges="keyboardHidden|orientation"
-			android:label="Application profiles"
-			android:name=".profiles.SettingsProfileActivity"/>
-
-		<activity
-			android:name=".profiles.EditProfileActivity"
-			android:label="Application profiles"/>
 
 		<activity android:name=".activities.PrivacyAndSecurityActivity"
 			android:configChanges="keyboardHidden|orientation" />

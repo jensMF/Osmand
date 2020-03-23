@@ -131,6 +131,8 @@
 	<string name="poi_bath_open_air">Open air</string>
 	<string name="poi_volcano_type">Type</string>
 	<string name="poi_volcano_status">Status</string>
+	<string name="poi_sms">SMS</string>
+	<string name="poi_video_telephone">Video</string>
 
 <!--  categories -->
 	<string name="poi_shop">Store</string>
@@ -260,7 +262,7 @@
 	<string name="poi_musical_instrument">Musical instruments</string>
 	<string name="poi_newsagent">Newsagent</string>
 	<string name="poi_optician">Optometrist</string>
-	<string name="poi_organic">Organic food</string>
+	<string name="poi_organic">Organic products</string>
 	<string name="poi_outdoor">Outdoor store</string>
 	<string name="poi_paint">Paint store</string>
 	<string name="poi_pet">Pet store</string>
@@ -634,7 +636,6 @@
 	<string name="poi_healthcare_alternative">Alternative medicine</string>
 	<string name="poi_audiologist">Audiologist</string>
 	<string name="poi_blood_bank">Blood bank</string>
-	<string name="poi_healthcare_centre">Medical center</string>
 	<string name="poi_midwife">Midwife</string>
 	<string name="poi_occupational_therapist">Occupational therapist</string>
 	<string name="poi_optometrist">Optometrist</string>
@@ -877,8 +878,8 @@
 	<string name="poi_internet_access_service">Internet access: service</string>
 	<string name="poi_internet_access_yes">Internet access: yes</string>
 	<string name="poi_internet_access_no">Internet access: no</string>
-	<string name="poi_internet_access_fee_yes">Internet access - fee charged</string>
-	<string name="poi_internet_access_fee_no">Internet access - no fee</string>
+	<string name="poi_internet_access_fee_yes">Internet access: fee charged</string>
+	<string name="poi_internet_access_fee_no">Internet access: no fee</string>
 
 	<string name="poi_monastery">Monastery</string>
 <!--	<string name="poi_historic_monastery">Historic monastery</string>-->
@@ -4169,7 +4170,7 @@
 	<string name="poi_volcano_type_maar">Maar</string>
 	<string name="poi_volcano_type_caldera">Caldera</string>
 	<string name="poi_volcano_type_lava_dome">Lava dome</string>
-	<string name="poi_volcano_type_dirt">Dirt</string>
+	<string name="poi_volcano_type_mud">Mud</string>
 	<string name="poi_volcano_last_eruption">Last eruption</string>
 	<string name="poi_volcano_status_extinct">Extinct</string>
 	<string name="poi_volcano_status_dormant">Dormant</string>
@@ -4178,5 +4179,47 @@
 	<string name="poi_volcano_number_of_eruptions">Number of eruptions</string>
 
 	<string name="poi_memorial_ghost_bike">Ghost bike</string>
+
+	<string name="poi_paintball">Paintball</string>
+
+	<string name="poi_mountain_rescue">Mountain rescue</string>
+	<string name="poi_shop_security">Security store</string>
+
+	<string name="poi_bowling_alley">Bowling center</string>
+
+	<string name="poi_piste_ref">Piste reference number</string>
+
+	<string name="poi_resort_hunting">Hunting base</string>
+
+	<string name="poi_dive_centre">Scuba diving centre</string>
+
+	<string name="poi_sms_yes">Yes</string>
+	<string name="poi_sms_no">No</string>
+	<string name="poi_covered_booth">Booth</string>
+	<string name="poi_booth">Booth type</string>
+	<string name="poi_video_yes">Yes</string>
+	<string name="poi_video_no">No</string>
+
+	<string name="poi_internet_access_fee_customers">Signal to find the pole</string>
+	<string name="poi_traffic_signals_sound_locate">Only when walking is allowed</string>
+	<string name="poi_tactile_paving_contrasted">Contrasted</string>
+	<string name="poi_tactile_paving_primitive">Primitive</string>
+	<string name="poi_tactile_paving_incorrect">Incorrect</string>
+
+	<string name="poi_seamark_water_level_part_submerged">Water level: part-submerged</string>
+	<string name="poi_seamark_water_level_submerged">Water level: submerged</string>
+	<string name="poi_seamark_water_level_dry">Water level: dry</string>
+	<string name="poi_seamark_water_level_covers">Water level: covers</string>
+	<string name="poi_seamark_water_level_awash">Water level: awash</string>
+	<string name="poi_seamark_water_level_floods">Water level: floods</string>
+	<string name="poi_seamark_water_level_floating">Water level: floating</string>
+	<string name="poi_seamark_water_level_above_mwl">Water level: above mean water level</string>
+	<string name="poi_seamark_water_level_below_mwl">Water level: below mean water level</string>
+	<string name="poi_seamark_obstruction">Obstruction</string>
+
+	<string name="poi_drinking_water_refill_yes">Drinking water refill: yes</string>
+	<string name="poi_drinking_water_refill_no">Drinking water refill: no</string>
+	<string name="poi_drinking_water_refill_network">Drinking water refill network</string>
+
 
 </resources>

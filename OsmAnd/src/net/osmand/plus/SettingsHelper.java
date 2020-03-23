@@ -1,17 +1,30 @@
 package net.osmand.plus;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.os.AsyncTask;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v7.app.AlertDialog;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+import net.osmand.IndexConstants;
 import net.osmand.PlatformUtil;
+import net.osmand.data.LatLon;
+import net.osmand.map.ITileSource;
+import net.osmand.map.TileSourceManager;
+import net.osmand.osm.MapPoiTypes;
+import net.osmand.osm.PoiCategory;
+import net.osmand.plus.ApplicationMode.ApplicationModeBean;
 import net.osmand.plus.ApplicationMode.ApplicationModeBuilder;
 import net.osmand.plus.OsmandSettings.OsmandPreference;
+import net.osmand.plus.helpers.AvoidSpecificRoads;
+import net.osmand.plus.helpers.AvoidSpecificRoads.AvoidRoadInfo;
+import net.osmand.plus.poi.PoiUIFilter;
+import net.osmand.plus.quickaction.QuickAction;
+import net.osmand.plus.quickaction.QuickActionRegistry;
 import net.osmand.util.Algorithms;
 
 import org.apache.commons.logging.Log;
@@ -32,12 +45,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -76,14 +94,20 @@ public class SettingsHelper {
 	private static final int BUFFER = 1024;
 
 	private OsmandApplication app;
-	private Activity activity;
 
-	private boolean importing;
-	private boolean importSuspended;
 	private ImportAsyncTask importTask;
+	private Map<File, ExportAsyncTask> exportAsyncTasks = new HashMap<>();
 
 	public interface SettingsImportListener {
-		void onSettingsImportFinished(boolean succeed, boolean empty, @NonNull List<SettingsItem> items);
+		void onSettingsImportFinished(boolean succeed, @NonNull List<SettingsItem> items);
+	}
+
+	public interface SettingsCollectListener {
+		void onSettingsCollectFinished(boolean succeed, boolean empty, @NonNull List<SettingsItem> items);
+	}
+
+	public interface CheckDuplicatesListener {
+		void onDuplicatesChecked(@NonNull List<Object> duplicates, List<SettingsItem> items);
 	}
 
 	public interface SettingsExportListener {
@@ -94,42 +118,23 @@ public class SettingsHelper {
 		this.app = app;
 	}
 
-	public Activity getActivity() {
-		return activity;
-	}
-
-	public void setActivity(Activity activity) {
-		this.activity = activity;
-		if (importing) {
-			importTask.processNextItem();
-		}
-	}
-
-	public void resetActivity(Activity activity) {
-		if (this.activity == activity) {
-			if (importing) {
-				importTask.suspendImport();
-				importSuspended = true;
-			}
-			this.activity = null;
-		}
-	}
-
-	public boolean isImporting() {
-		return importing;
-	}
-
 	public enum SettingsItemType {
 		GLOBAL,
 		PROFILE,
 		PLUGIN,
 		DATA,
 		FILE,
+		QUICK_ACTION,
+		POI_UI_FILTERS,
+		MAP_SOURCES,
+		AVOID_ROADS
 	}
 
 	public abstract static class SettingsItem {
 
 		private SettingsItemType type;
+
+		boolean shouldReplace = false;
 
 		SettingsItem(@NonNull SettingsItemType type) {
 			this.type = type;
@@ -153,6 +158,14 @@ public class SettingsHelper {
 
 		@NonNull
 		public abstract String getFileName();
+
+		public boolean shouldReadOnCollecting() {
+			return false;
+		}
+
+		public void setShouldReplace(boolean shouldReplace) {
+			this.shouldReplace = shouldReplace;
+		}
 
 		static SettingsItemType parseItemType(@NonNull JSONObject json) throws IllegalArgumentException, JSONException {
 			return SettingsItemType.valueOf(json.getString("type"));
@@ -201,8 +214,54 @@ public class SettingsHelper {
 			}
 
 			SettingsItem item = (SettingsItem) other;
-			return item.getType() == getType() && item.getName().equals(getName());
+			return item.getType() == getType()
+					&& item.getName().equals(getName())
+					&& item.getFileName().equals(getFileName());
 		}
+	}
+
+	public abstract static class CollectionSettingsItem<T> extends SettingsItem {
+
+		protected List<T> items = new ArrayList<>();
+		protected List<T> duplicateItems = new ArrayList<>();
+		protected List<T> existingItems;
+
+		CollectionSettingsItem(@NonNull SettingsItemType type, @NonNull List<T> items) {
+			super(type);
+			this.items = items;
+		}
+
+		CollectionSettingsItem(@NonNull SettingsItemType type, @NonNull JSONObject json) throws JSONException {
+			super(type, json);
+		}
+
+		@NonNull
+		public List<T> getItems() {
+			return items;
+		}
+
+		@NonNull
+		public List<T> getDuplicateItems() {
+			return duplicateItems;
+		}
+
+		@NonNull
+		public List<T> excludeDuplicateItems() {
+			if (!items.isEmpty()) {
+				for (T item : items) {
+					if (isDuplicate(item)) {
+						duplicateItems.add(item);
+					}
+				}
+			}
+			items.removeAll(duplicateItems);
+			return duplicateItems;
+		}
+
+		public abstract boolean isDuplicate(@NonNull T item);
+
+		@NonNull
+		public abstract T renameItem(@NonNull T item);
 	}
 
 	public abstract static class SettingsItemReader<T extends SettingsItem> {
@@ -304,7 +363,6 @@ public class SettingsHelper {
 					}
 				}
 			});
-
 		}
 	}
 
@@ -398,17 +456,41 @@ public class SettingsHelper {
 
 	public static class ProfileSettingsItem extends OsmandSettingsItem {
 
+		private OsmandApplication app;
 		private ApplicationMode appMode;
 		private ApplicationModeBuilder builder;
+		private ApplicationModeBean modeBean;
+		private Set<String> appModeBeanPrefsIds;
 
-		public ProfileSettingsItem(@NonNull OsmandSettings settings, @NonNull ApplicationMode appMode) {
-			super(SettingsItemType.PROFILE, settings);
+		public ProfileSettingsItem(@NonNull OsmandApplication app, @NonNull ApplicationMode appMode) {
+			super(SettingsItemType.PROFILE, app.getSettings());
+			this.app = app;
 			this.appMode = appMode;
+			appModeBeanPrefsIds = new HashSet<>(Arrays.asList(app.getSettings().appModeBeanPrefsIds));
 		}
 
-		public ProfileSettingsItem(@NonNull OsmandSettings settings, @NonNull JSONObject json) throws JSONException {
-			super(SettingsItemType.PROFILE, settings, json);
-			readFromJson(settings.getContext(), json);
+		public ProfileSettingsItem(@NonNull OsmandApplication app, @NonNull ApplicationModeBean modeBean) {
+			super(SettingsItemType.PROFILE, app.getSettings());
+			this.app = app;
+			this.modeBean = modeBean;
+			builder = ApplicationMode.fromModeBean(app, modeBean);
+			appMode = builder.getApplicationMode();
+			appModeBeanPrefsIds = new HashSet<>(Arrays.asList(app.getSettings().appModeBeanPrefsIds));
+		}
+
+		public ProfileSettingsItem(@NonNull OsmandApplication app, @NonNull JSONObject json) throws JSONException {
+			super(SettingsItemType.PROFILE, app.getSettings(), json);
+			this.app = app;
+			readFromJson(app.getSettings().getContext(), json);
+			appModeBeanPrefsIds = new HashSet<>(Arrays.asList(app.getSettings().appModeBeanPrefsIds));
+		}
+
+		public ApplicationMode getAppMode() {
+			return appMode;
+		}
+
+		public ApplicationModeBean getModeBean() {
+			return modeBean;
 		}
 
 		@NonNull
@@ -421,7 +503,7 @@ public class SettingsHelper {
 		@Override
 		public String getPublicName(@NonNull Context ctx) {
 			if (appMode.isCustomProfile()) {
-				return appMode.getCustomProfileName();
+				return modeBean.userProfileName;
 			} else if (appMode.getNameKeyResource() != -1) {
 				return ctx.getString(appMode.getNameKeyResource());
 			} else {
@@ -437,7 +519,8 @@ public class SettingsHelper {
 
 		void readFromJson(@NonNull OsmandApplication app, @NonNull JSONObject json) throws JSONException {
 			String appModeJson = json.getString("appMode");
-			builder = ApplicationMode.fromJson(app, appModeJson);
+			modeBean = ApplicationMode.fromJson(appModeJson);
+			builder = ApplicationMode.fromModeBean(app, modeBean);
 			ApplicationMode appMode = builder.getApplicationMode();
 			if (!appMode.isCustomProfile()) {
 				appMode = ApplicationMode.valueOfStringKey(appMode.getStringKey(), appMode);
@@ -450,11 +533,44 @@ public class SettingsHelper {
 			return builder != null && ApplicationMode.valueOfStringKey(getName(), null) != null;
 		}
 
+		private void renameProfile() {
+			int number = 0;
+			while (true) {
+				number++;
+				String key = modeBean.stringKey + "_" + number;
+				if (ApplicationMode.valueOfStringKey(key, null) == null) {
+					modeBean.stringKey = key;
+					modeBean.userProfileName = modeBean.userProfileName + "_" + number;
+					break;
+				}
+			}
+		}
+
 		@Override
 		public void apply() {
-			if (appMode.isCustomProfile()) {
-				appMode = ApplicationMode.saveProfile(builder, getSettings().getContext());
+			if (!appMode.isCustomProfile() && !shouldReplace) {
+				ApplicationMode parent = ApplicationMode.valueOfStringKey(modeBean.stringKey, null);
+				renameProfile();
+				ApplicationMode.ApplicationModeBuilder builder = ApplicationMode
+						.createCustomMode(parent, modeBean.stringKey, app)
+						.setIconResName(modeBean.iconName)
+						.setUserProfileName(modeBean.userProfileName)
+						.setRoutingProfile(modeBean.routingProfile)
+						.setRouteService(modeBean.routeService)
+						.setIconColor(modeBean.iconColor)
+						.setLocationIcon(modeBean.locIcon)
+						.setNavigationIcon(modeBean.navIcon);
+				app.getSettings().copyPreferencesFromProfile(parent, builder.getApplicationMode());
+				appMode = ApplicationMode.saveProfile(builder, app);
+			} else if (!shouldReplace && exists()) {
+				renameProfile();
+				builder = ApplicationMode.fromModeBean(app, modeBean);
+				appMode = ApplicationMode.saveProfile(builder, app);
+			} else {
+				builder = ApplicationMode.fromModeBean(app, modeBean);
+				appMode = ApplicationMode.saveProfile(builder, app);
 			}
+			ApplicationMode.changeProfileAvailability(appMode, true, app);
 		}
 
 		@Override
@@ -463,14 +579,15 @@ public class SettingsHelper {
 			json.put("appMode", new JSONObject(appMode.toJson()));
 		}
 
-
 		@NonNull
 		@Override
 		SettingsItemReader getReader() {
 			return new OsmandSettingsItemReader(this, getSettings()) {
 				@Override
 				protected void readPreferenceFromJson(@NonNull OsmandPreference<?> preference, @NonNull JSONObject json) throws JSONException {
-					preference.readFromJson(json, appMode);
+					if (!appModeBeanPrefsIds.contains(preference.getId())) {
+						preference.readFromJson(json, appMode);
+					}
 				}
 			};
 		}
@@ -481,7 +598,9 @@ public class SettingsHelper {
 			return new OsmandSettingsItemWriter(this, getSettings()) {
 				@Override
 				protected void writePreferenceToJson(@NonNull OsmandPreference<?> preference, @NonNull JSONObject json) throws JSONException {
-					preference.writeToJson(json, appMode);
+					if (!appModeBeanPrefsIds.contains(preference.getId())) {
+						preference.writeToJson(json, appMode);
+					}
 				}
 			};
 		}
@@ -660,13 +779,31 @@ public class SettingsHelper {
 			return file.exists();
 		}
 
+		private File renameFile(File file) {
+			int number = 0;
+			String path = file.getAbsolutePath();
+			while (true) {
+				number++;
+				String copyName = path.replaceAll(file.getName(), file.getName().replaceFirst("[.]", "_" + number + "."));
+				File copyFile = new File(copyName);
+				if (!copyFile.exists()) {
+					return copyFile;
+				}
+			}
+		}
+
 		@NonNull
 		@Override
 		SettingsItemReader getReader() {
 			return new StreamSettingsItemReader(this) {
 				@Override
 				public void readFromStream(@NonNull InputStream inputStream) throws IOException, IllegalArgumentException {
-					OutputStream output = new FileOutputStream(file);
+					OutputStream output;
+					if (!file.exists() || shouldReplace) {
+						output = new FileOutputStream(file);
+					} else {
+						output = new FileOutputStream(renameFile(file));
+					}
 					byte[] buffer = new byte[BUFFER];
 					int count;
 					try {
@@ -693,6 +830,740 @@ public class SettingsHelper {
 		}
 	}
 
+	public static class QuickActionSettingsItem extends CollectionSettingsItem<QuickAction> {
+
+		private OsmandApplication app;
+		private QuickActionRegistry actionRegistry;
+
+		public QuickActionSettingsItem(@NonNull OsmandApplication app,
+									   @NonNull List<QuickAction> items) {
+			super(SettingsItemType.QUICK_ACTION, items);
+			this.app = app;
+			actionRegistry = app.getQuickActionRegistry();
+			existingItems = actionRegistry.getQuickActions();
+		}
+
+		QuickActionSettingsItem(@NonNull OsmandApplication app,
+								@NonNull JSONObject json) throws JSONException {
+			super(SettingsItemType.QUICK_ACTION, json);
+			this.app = app;
+			actionRegistry = app.getQuickActionRegistry();
+			existingItems = actionRegistry.getQuickActions();
+		}
+
+		@Override
+		public boolean isDuplicate(@NonNull QuickAction item) {
+			return !actionRegistry.isNameUnique(item, app);
+		}
+
+		@NonNull
+		@Override
+		public QuickAction renameItem(@NonNull QuickAction item) {
+			return actionRegistry.generateUniqueName(item, app);
+		}
+
+		@Override
+		public void apply() {
+			if (!items.isEmpty() || !duplicateItems.isEmpty()) {
+				List<QuickAction> newActions = new ArrayList<>(existingItems);
+				if (!duplicateItems.isEmpty()) {
+					if (shouldReplace) {
+						for (QuickAction duplicateItem : duplicateItems) {
+							for (QuickAction savedAction : existingItems) {
+								if (duplicateItem.getName(app).equals(savedAction.getName(app))) {
+									newActions.remove(savedAction);
+								}
+							}
+						}
+					} else {
+						for (QuickAction duplicateItem : duplicateItems) {
+							renameItem(duplicateItem);
+						}
+					}
+					newActions.addAll(duplicateItems);
+				}
+				newActions.addAll(items);
+				actionRegistry.updateQuickActions(newActions);
+			}
+		}
+
+		@Override
+		public boolean shouldReadOnCollecting() {
+			return true;
+		}
+
+		@NonNull
+		@Override
+		public String getName() {
+			return "quick_actions";
+		}
+
+		@NonNull
+		@Override
+		public String getPublicName(@NonNull Context ctx) {
+			return "quick_actions";
+		}
+
+		@NonNull
+		@Override
+		public String getFileName() {
+			return getName() + ".json";
+		}
+
+		@NonNull
+		@Override
+		SettingsItemReader getReader() {
+			return new SettingsItemReader<QuickActionSettingsItem>(this) {
+				@Override
+				public void readFromStream(@NonNull InputStream inputStream) throws IOException, IllegalArgumentException {
+					StringBuilder buf = new StringBuilder();
+					try {
+						BufferedReader in = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+						String str;
+						while ((str = in.readLine()) != null) {
+							buf.append(str);
+						}
+					} catch (IOException e) {
+						throw new IOException("Cannot read json body", e);
+					}
+					String jsonStr = buf.toString();
+					if (Algorithms.isEmpty(jsonStr)) {
+						throw new IllegalArgumentException("Cannot find json body");
+					}
+					final JSONObject json;
+					try {
+						Gson gson = new Gson();
+						Type type = new TypeToken<HashMap<String, String>>() {
+						}.getType();
+						json = new JSONObject(jsonStr);
+						JSONArray itemsJson = json.getJSONArray("items");
+						for (int i = 0; i < itemsJson.length(); i++) {
+							JSONObject object = itemsJson.getJSONObject(i);
+							String name = object.getString("name");
+							int actionType = object.getInt("type");
+							String paramsString = object.getString("params");
+							HashMap<String, String> params = gson.fromJson(paramsString, type);
+							QuickAction quickAction = new QuickAction(actionType);
+							if (!name.isEmpty()) {
+								quickAction.setName(name);
+							}
+							quickAction.setParams(params);
+							items.add(quickAction);
+						}
+					} catch (JSONException e) {
+						throw new IllegalArgumentException("Json parse error", e);
+					}
+				}
+			};
+		}
+
+		@NonNull
+		@Override
+		SettingsItemWriter getWriter() {
+			return new SettingsItemWriter<QuickActionSettingsItem>(this) {
+				@Override
+				public boolean writeToStream(@NonNull OutputStream outputStream) throws IOException {
+					JSONObject json = new JSONObject();
+					JSONArray jsonArray = new JSONArray();
+					Gson gson = new Gson();
+					Type type = new TypeToken<HashMap<String, String>>() {
+					}.getType();
+					if (!items.isEmpty()) {
+						try {
+							for (QuickAction action : items) {
+								JSONObject jsonObject = new JSONObject();
+								jsonObject.put("name", action.hasCustomName(app)
+										? action.getName(app) : "");
+								jsonObject.put("type", action.getType());
+								jsonObject.put("params", gson.toJson(action.getParams(), type));
+								jsonArray.put(jsonObject);
+							}
+							json.put("items", jsonArray);
+						} catch (JSONException e) {
+							LOG.error("Failed write to json", e);
+						}
+					}
+					if (json.length() > 0) {
+						try {
+							String s = json.toString(2);
+							outputStream.write(s.getBytes("UTF-8"));
+						} catch (JSONException e) {
+							LOG.error("Failed to write json to stream", e);
+						}
+						return true;
+					}
+					return false;
+				}
+			};
+		}
+	}
+
+	public static class PoiUiFilterSettingsItem extends CollectionSettingsItem<PoiUIFilter> {
+
+		private OsmandApplication app;
+
+		public PoiUiFilterSettingsItem(@NonNull OsmandApplication app, @NonNull List<PoiUIFilter> items) {
+			super(SettingsItemType.POI_UI_FILTERS, items);
+			this.app = app;
+			existingItems = app.getPoiFilters().getUserDefinedPoiFilters(false);
+		}
+
+		PoiUiFilterSettingsItem(@NonNull OsmandApplication app, @NonNull JSONObject json) throws JSONException {
+			super(SettingsItemType.POI_UI_FILTERS, json);
+			this.app = app;
+			existingItems = app.getPoiFilters().getUserDefinedPoiFilters(false);
+		}
+
+		@Override
+		public void apply() {
+			if (!items.isEmpty() || !duplicateItems.isEmpty()) {
+				for (PoiUIFilter duplicate : duplicateItems) {
+					items.add(shouldReplace ? duplicate : renameItem(duplicate));
+				}
+				for (PoiUIFilter filter : items) {
+					app.getPoiFilters().createPoiFilter(filter, false);
+				}
+				app.getSearchUICore().refreshCustomPoiFilters();
+			}
+		}
+
+		@Override
+		public boolean isDuplicate(@NonNull PoiUIFilter item) {
+			String savedName = item.getName();
+			for (PoiUIFilter filter : existingItems) {
+				if (filter.getName().equals(savedName)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		@NonNull
+		@Override
+		public PoiUIFilter renameItem(@NonNull PoiUIFilter item) {
+			int number = 0;
+			while (true) {
+				number++;
+				PoiUIFilter renamedItem = new PoiUIFilter(item,
+						item.getName() + "_" + number,
+						item.getFilterId() + "_" + number);
+				if (!isDuplicate(renamedItem)) {
+					return renamedItem;
+				}
+			}
+		}
+
+		@NonNull
+		@Override
+		public String getName() {
+			return "poi_ui_filters";
+		}
+
+		@NonNull
+		@Override
+		public String getPublicName(@NonNull Context ctx) {
+			return "poi_ui_filters";
+		}
+
+		@Override
+		public boolean shouldReadOnCollecting() {
+			return true;
+		}
+
+		@NonNull
+		@Override
+		public String getFileName() {
+			return getName() + ".json";
+		}
+
+		@NonNull
+		@Override
+		SettingsItemReader getReader() {
+			return new SettingsItemReader<PoiUiFilterSettingsItem>(this) {
+				@Override
+				public void readFromStream(@NonNull InputStream inputStream) throws IOException, IllegalArgumentException {
+					StringBuilder buf = new StringBuilder();
+					try {
+						BufferedReader in = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+						String str;
+						while ((str = in.readLine()) != null) {
+							buf.append(str);
+						}
+					} catch (IOException e) {
+						throw new IOException("Cannot read json body", e);
+					}
+					String jsonStr = buf.toString();
+					if (Algorithms.isEmpty(jsonStr)) {
+						throw new IllegalArgumentException("Cannot find json body");
+					}
+					final JSONObject json;
+					try {
+						json = new JSONObject(jsonStr);
+						JSONArray jsonArray = json.getJSONArray("items");
+						Gson gson = new Gson();
+						Type type = new TypeToken<HashMap<String, LinkedHashSet<String>>>() {
+						}.getType();
+						MapPoiTypes poiTypes = app.getPoiTypes();
+						for (int i = 0; i < jsonArray.length(); i++) {
+							JSONObject object = jsonArray.getJSONObject(i);
+							String name = object.getString("name");
+							String filterId = object.getString("filterId");
+							String acceptedTypesString = object.getString("acceptedTypes");
+							HashMap<String, LinkedHashSet<String>> acceptedTypes = gson.fromJson(acceptedTypesString, type);
+							Map<PoiCategory, LinkedHashSet<String>> acceptedTypesDone = new HashMap<>();
+							for (Map.Entry<String, LinkedHashSet<String>> mapItem : acceptedTypes.entrySet()) {
+								final PoiCategory a = poiTypes.getPoiCategoryByName(mapItem.getKey());
+								acceptedTypesDone.put(a, mapItem.getValue());
+							}
+							PoiUIFilter filter = new PoiUIFilter(name, filterId, acceptedTypesDone, app);
+							items.add(filter);
+						}
+					} catch (JSONException e) {
+						throw new IllegalArgumentException("Json parse error", e);
+					}
+				}
+			};
+		}
+
+		@NonNull
+		@Override
+		SettingsItemWriter getWriter() {
+			return new SettingsItemWriter<PoiUiFilterSettingsItem>(this) {
+				@Override
+				public boolean writeToStream(@NonNull OutputStream outputStream) throws IOException {
+					JSONObject json = new JSONObject();
+					JSONArray jsonArray = new JSONArray();
+					Gson gson = new Gson();
+					Type type = new TypeToken<HashMap<PoiCategory, LinkedHashSet<String>>>() {
+					}.getType();
+					if (!items.isEmpty()) {
+						try {
+							for (PoiUIFilter filter : items) {
+								JSONObject jsonObject = new JSONObject();
+								jsonObject.put("name", filter.getName());
+								jsonObject.put("filterId", filter.getFilterId());
+								jsonObject.put("acceptedTypes", gson.toJson(filter.getAcceptedTypes(), type));
+								jsonArray.put(jsonObject);
+							}
+							json.put("items", jsonArray);
+						} catch (JSONException e) {
+							LOG.error("Failed write to json", e);
+						}
+					}
+					if (json.length() > 0) {
+						try {
+							String s = json.toString(2);
+							outputStream.write(s.getBytes("UTF-8"));
+						} catch (JSONException e) {
+							LOG.error("Failed to write json to stream", e);
+						}
+						return true;
+					}
+					return false;
+				}
+			};
+		}
+	}
+
+	public static class MapSourcesSettingsItem extends CollectionSettingsItem<ITileSource> {
+
+		private OsmandApplication app;
+		private List<String> existingItemsNames;
+
+		public MapSourcesSettingsItem(@NonNull OsmandApplication app, @NonNull List<ITileSource> items) {
+			super(SettingsItemType.MAP_SOURCES, items);
+			this.app = app;
+			existingItemsNames = new ArrayList<>(app.getSettings().getTileSourceEntries().values());
+		}
+
+		MapSourcesSettingsItem(@NonNull OsmandApplication app, @NonNull JSONObject json) throws JSONException {
+			super(SettingsItemType.MAP_SOURCES, json);
+			this.app = app;
+			existingItemsNames = new ArrayList<>(app.getSettings().getTileSourceEntries().values());
+		}
+
+		@Override
+		public void apply() {
+			if (!items.isEmpty() || !duplicateItems.isEmpty()) {
+				if (shouldReplace) {
+					for (ITileSource tileSource : duplicateItems) {
+						if (tileSource instanceof SQLiteTileSource) {
+							File f = app.getAppPath(IndexConstants.TILES_INDEX_DIR + tileSource.getName() + IndexConstants.SQLITE_EXT);
+							if (f != null && f.exists()) {
+								if (f.delete()) {
+									items.add(tileSource);
+								}
+							}
+						} else if (tileSource instanceof TileSourceManager.TileSourceTemplate) {
+							File f = app.getAppPath(IndexConstants.TILES_INDEX_DIR + tileSource.getName());
+							if (f != null && f.exists() && f.isDirectory()) {
+								if (f.delete()) {
+									items.add(tileSource);
+								}
+							}
+						}
+					}
+				} else {
+					for (ITileSource tileSource : duplicateItems) {
+						items.add(renameItem(tileSource));
+					}
+				}
+				for (ITileSource tileSource : items) {
+					if (tileSource instanceof TileSourceManager.TileSourceTemplate) {
+						app.getSettings().installTileSource((TileSourceManager.TileSourceTemplate) tileSource);
+					} else if (tileSource instanceof SQLiteTileSource) {
+						((SQLiteTileSource) tileSource).createDataBase();
+					}
+				}
+			}
+		}
+
+		@NonNull
+		@Override
+		public ITileSource renameItem(@NonNull ITileSource item) {
+			int number = 0;
+			while (true) {
+				number++;
+				if (item instanceof SQLiteTileSource) {
+					SQLiteTileSource oldItem = (SQLiteTileSource) item;
+					SQLiteTileSource renamedItem = new SQLiteTileSource(
+							oldItem,
+							oldItem.getName() + "_" + number,
+							app);
+					if (!isDuplicate(renamedItem)) {
+						return renamedItem;
+					}
+				} else if (item instanceof TileSourceManager.TileSourceTemplate) {
+					TileSourceManager.TileSourceTemplate oldItem = (TileSourceManager.TileSourceTemplate) item;
+					oldItem.setName(oldItem.getName() + "_" + number);
+					if (!isDuplicate(oldItem)) {
+						return oldItem;
+					}
+				}
+			}
+		}
+
+		@Override
+		public boolean isDuplicate(@NonNull ITileSource item) {
+			for (String name : existingItemsNames) {
+				if (name.equals(item.getName())) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		@NonNull
+		@Override
+		public String getName() {
+			return "map_sources";
+		}
+
+		@NonNull
+		@Override
+		public String getPublicName(@NonNull Context ctx) {
+			return "map_sources";
+		}
+
+		@Override
+		public boolean shouldReadOnCollecting() {
+			return true;
+		}
+
+		@NonNull
+		@Override
+		public String getFileName() {
+			return getName() + ".json";
+		}
+
+		@NonNull
+		@Override
+		SettingsItemReader getReader() {
+			return new SettingsItemReader<MapSourcesSettingsItem>(this) {
+				@Override
+				public void readFromStream(@NonNull InputStream inputStream) throws IOException, IllegalArgumentException {
+					StringBuilder buf = new StringBuilder();
+					try {
+						BufferedReader in = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+						String str;
+						while ((str = in.readLine()) != null) {
+							buf.append(str);
+						}
+					} catch (IOException e) {
+						throw new IOException("Cannot read json body", e);
+					}
+					String jsonStr = buf.toString();
+					if (Algorithms.isEmpty(jsonStr)) {
+						throw new IllegalArgumentException("Cannot find json body");
+					}
+					final JSONObject json;
+					try {
+						json = new JSONObject(jsonStr);
+						JSONArray jsonArray = json.getJSONArray("items");
+						for (int i = 0; i < jsonArray.length(); i++) {
+							JSONObject object = jsonArray.getJSONObject(i);
+							boolean sql = object.optBoolean("sql");
+							String name = object.optString("name");
+							int minZoom = object.optInt("minZoom");
+							int maxZoom = object.optInt("maxZoom");
+							String url = object.optString("url");
+							String randoms = object.optString("randoms");
+							boolean ellipsoid = object.optBoolean("ellipsoid", false);
+							boolean invertedY = object.optBoolean("inverted_y", false);
+							String referer = object.optString("referer");
+							boolean timesupported = object.optBoolean("timesupported", false);
+							long expire = object.optLong("expire");
+							boolean inversiveZoom = object.optBoolean("inversiveZoom", false);
+							String ext = object.optString("ext");
+							int tileSize = object.optInt("tileSize");
+							int bitDensity = object.optInt("bitDensity");
+							int avgSize = object.optInt("avgSize");
+							String rule = object.optString("rule");
+
+							ITileSource template;
+							if (!sql) {
+								template = new TileSourceManager.TileSourceTemplate(name, url, ext, maxZoom, minZoom, tileSize, bitDensity, avgSize);
+							} else {
+								template = new SQLiteTileSource(app, name, minZoom, maxZoom, url, randoms, ellipsoid, invertedY, referer, timesupported, expire, inversiveZoom);
+							}
+							items.add(template);
+						}
+					} catch (JSONException e) {
+						throw new IllegalArgumentException("Json parse error", e);
+					}
+				}
+			};
+		}
+
+		@NonNull
+		@Override
+		SettingsItemWriter getWriter() {
+			return new SettingsItemWriter<MapSourcesSettingsItem>(this) {
+				@Override
+				public boolean writeToStream(@NonNull OutputStream outputStream) throws IOException {
+					JSONObject json = new JSONObject();
+					JSONArray jsonArray = new JSONArray();
+					if (!items.isEmpty()) {
+						try {
+							for (ITileSource template : items) {
+								JSONObject jsonObject = new JSONObject();
+								boolean sql = template instanceof SQLiteTileSource;
+								jsonObject.put("sql", sql);
+								jsonObject.put("name", template.getName());
+								jsonObject.put("minZoom", template.getMinimumZoomSupported());
+								jsonObject.put("maxZoom", template.getMaximumZoomSupported());
+								jsonObject.put("url", template.getUrlTemplate());
+								jsonObject.put("randoms", template.getRandoms());
+								jsonObject.put("ellipsoid", template.isEllipticYTile());
+								jsonObject.put("inverted_y", template.isInvertedYTile());
+								jsonObject.put("referer", template.getReferer());
+								jsonObject.put("timesupported", template.isTimeSupported());
+								jsonObject.put("expire", template.getExpirationTimeMillis());
+								jsonObject.put("inversiveZoom", template.getInversiveZoom());
+								jsonObject.put("ext", template.getTileFormat());
+								jsonObject.put("tileSize", template.getTileSize());
+								jsonObject.put("bitDensity", template.getBitDensity());
+								jsonObject.put("avgSize", template.getAvgSize());
+								jsonObject.put("rule", template.getRule());
+								jsonArray.put(jsonObject);
+							}
+							json.put("items", jsonArray);
+
+						} catch (JSONException e) {
+							LOG.error("Failed write to json", e);
+						}
+					}
+					if (json.length() > 0) {
+						try {
+							String s = json.toString(2);
+							outputStream.write(s.getBytes("UTF-8"));
+						} catch (JSONException e) {
+							LOG.error("Failed to write json to stream", e);
+						}
+						return true;
+					}
+					return false;
+				}
+			};
+		}
+	}
+
+	public static class AvoidRoadsSettingsItem extends CollectionSettingsItem<AvoidRoadInfo> {
+
+		private OsmandApplication app;
+		private OsmandSettings settings;
+		private AvoidSpecificRoads specificRoads;
+
+		public AvoidRoadsSettingsItem(@NonNull OsmandApplication app, @NonNull List<AvoidRoadInfo> items) {
+			super(SettingsItemType.AVOID_ROADS, items);
+			this.app = app;
+			settings = app.getSettings();
+			specificRoads = app.getAvoidSpecificRoads();
+			existingItems = new ArrayList<>(specificRoads.getImpassableRoads().values());
+		}
+
+		AvoidRoadsSettingsItem(@NonNull OsmandApplication app, @NonNull JSONObject json) throws JSONException {
+			super(SettingsItemType.AVOID_ROADS, json);
+			this.app = app;
+			settings = app.getSettings();
+			specificRoads = app.getAvoidSpecificRoads();
+			existingItems = new ArrayList<>(specificRoads.getImpassableRoads().values());
+		}
+
+		@NonNull
+		@Override
+		public String getName() {
+			return "avoid_roads";
+		}
+
+		@NonNull
+		@Override
+		public String getPublicName(@NonNull Context ctx) {
+			return "avoid_roads";
+		}
+
+		@NonNull
+		@Override
+		public String getFileName() {
+			return getName() + ".json";
+		}
+
+		@Override
+		public void apply() {
+			if (!items.isEmpty() || !duplicateItems.isEmpty()) {
+				for (AvoidRoadInfo duplicate : duplicateItems) {
+					if (shouldReplace) {
+						LatLon latLon = new LatLon(duplicate.latitude, duplicate.longitude);
+						if (settings.removeImpassableRoad(latLon)) {
+							settings.addImpassableRoad(duplicate);
+						}
+					} else {
+						settings.addImpassableRoad(renameItem(duplicate));
+					}
+				}
+				for (AvoidRoadInfo avoidRoad : items) {
+					settings.addImpassableRoad(avoidRoad);
+				}
+				specificRoads.loadImpassableRoads();
+				specificRoads.initRouteObjects(true);
+			}
+		}
+
+		@Override
+		public boolean isDuplicate(@NonNull AvoidRoadInfo item) {
+			return existingItems.contains(item);
+		}
+
+		@Override
+		public boolean shouldReadOnCollecting() {
+			return true;
+		}
+
+		@NonNull
+		@Override
+		public AvoidRoadInfo renameItem(@NonNull AvoidRoadInfo item) {
+			int number = 0;
+			while (true) {
+				number++;
+				AvoidRoadInfo renamedItem = new AvoidRoadInfo();
+				renamedItem.name = item.name + "_" + number;
+				if (!isDuplicate(renamedItem)) {
+					renamedItem.id = item.id;
+					renamedItem.latitude = item.latitude;
+					renamedItem.longitude = item.longitude;
+					renamedItem.appModeKey = item.appModeKey;
+					return renamedItem;
+				}
+			}
+		}
+
+		@NonNull
+		@Override
+		SettingsItemReader getReader() {
+			return new SettingsItemReader<AvoidRoadsSettingsItem>(this) {
+				@Override
+				public void readFromStream(@NonNull InputStream inputStream) throws IOException, IllegalArgumentException {
+					StringBuilder buf = new StringBuilder();
+					try {
+						BufferedReader in = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+						String str;
+						while ((str = in.readLine()) != null) {
+							buf.append(str);
+						}
+					} catch (IOException e) {
+						throw new IOException("Cannot read json body", e);
+					}
+					String jsonStr = buf.toString();
+					if (Algorithms.isEmpty(jsonStr)) {
+						throw new IllegalArgumentException("Cannot find json body");
+					}
+					final JSONObject json;
+					try {
+						json = new JSONObject(jsonStr);
+						JSONArray jsonArray = json.getJSONArray("items");
+						for (int i = 0; i < jsonArray.length(); i++) {
+							JSONObject object = jsonArray.getJSONObject(i);
+							double latitude = object.optDouble("latitude");
+							double longitude = object.optDouble("longitude");
+							String name = object.optString("name");
+							String appModeKey = object.optString("appModeKey");
+							AvoidRoadInfo roadInfo = new AvoidRoadInfo();
+							roadInfo.id = 0;
+							roadInfo.latitude = latitude;
+							roadInfo.longitude = longitude;
+							roadInfo.name = name;
+							if (ApplicationMode.valueOfStringKey(appModeKey, null) != null) {
+								roadInfo.appModeKey = appModeKey;
+							} else {
+								roadInfo.appModeKey = app.getRoutingHelper().getAppMode().getStringKey();
+							}
+							items.add(roadInfo);
+						}
+					} catch (JSONException e) {
+						throw new IllegalArgumentException("Json parse error", e);
+					}
+				}
+			};
+		}
+
+		@NonNull
+		@Override
+		SettingsItemWriter getWriter() {
+			return new SettingsItemWriter<AvoidRoadsSettingsItem>(this) {
+				@Override
+				public boolean writeToStream(@NonNull OutputStream outputStream) throws IOException {
+					JSONObject json = new JSONObject();
+					JSONArray jsonArray = new JSONArray();
+					if (!items.isEmpty()) {
+						try {
+							for (AvoidRoadInfo avoidRoad : items) {
+								JSONObject jsonObject = new JSONObject();
+								jsonObject.put("latitude", avoidRoad.latitude);
+								jsonObject.put("longitude", avoidRoad.longitude);
+								jsonObject.put("name", avoidRoad.name);
+								jsonObject.put("appModeKey", avoidRoad.appModeKey);
+								jsonArray.put(jsonObject);
+							}
+							json.put("items", jsonArray);
+						} catch (JSONException e) {
+							LOG.error("Failed write to json", e);
+						}
+					}
+					if (json.length() > 0) {
+						try {
+							String s = json.toString(2);
+							outputStream.write(s.getBytes("UTF-8"));
+						} catch (JSONException e) {
+							LOG.error("Failed to write json to stream", e);
+						}
+						return true;
+					}
+					return false;
+				}
+			};
+		}
+	}
+
 	private static class SettingsItemsFactory {
 
 		private OsmandApplication app;
@@ -704,9 +1575,14 @@ public class SettingsHelper {
 			JSONArray itemsJson = json.getJSONArray("items");
 			for (int i = 0; i < itemsJson.length(); i++) {
 				JSONObject itemJson = itemsJson.getJSONObject(i);
-				SettingsItem item = createItem(itemJson);
-				if (item != null) {
-					items.add(item);
+				SettingsItem item;
+				try {
+					item = createItem(itemJson);
+					if (item != null) {
+						items.add(item);
+					}
+				} catch (IllegalArgumentException e) {
+					LOG.error("Error creating item from json: " + itemJson, e);
 				}
 			}
 			if (items.size() == 0) {
@@ -739,7 +1615,7 @@ public class SettingsHelper {
 					item = new GlobalSettingsItem(settings);
 					break;
 				case PROFILE:
-					item = new ProfileSettingsItem(settings, json);
+					item = new ProfileSettingsItem(app, json);
 					break;
 				case PLUGIN:
 					break;
@@ -748,6 +1624,18 @@ public class SettingsHelper {
 					break;
 				case FILE:
 					item = new FileSettingsItem(app, json);
+					break;
+				case QUICK_ACTION:
+					item = new QuickActionSettingsItem(app, json);
+					break;
+				case POI_UI_FILTERS:
+					item = new PoiUiFilterSettingsItem(app, json);
+					break;
+				case MAP_SOURCES:
+					item = new MapSourcesSettingsItem(app, json);
+					break;
+				case AVOID_ROADS:
+					item = new AvoidRoadsSettingsItem(app, json);
 					break;
 			}
 			return item;
@@ -847,23 +1735,29 @@ public class SettingsHelper {
 					} finally {
 						zis.closeEntry();
 					}
-					SettingsItemsFactory itemsFactory;
-					try {
-						itemsFactory = new SettingsItemsFactory(app, itemsJson);
-						if (collecting) {
+					if (collecting) {
+						try {
+							SettingsItemsFactory itemsFactory = new SettingsItemsFactory(app, itemsJson);
 							items.addAll(itemsFactory.getItems());
+						} catch (IllegalArgumentException e) {
+							LOG.error("Error parsing items: " + itemsJson, e);
+							throw new IllegalArgumentException("No items");
+						} catch (JSONException e) {
+							LOG.error("Error parsing items: " + itemsJson, e);
+							throw new IllegalArgumentException("No items");
 						}
-					} catch (IllegalArgumentException e) {
-						LOG.error("Error parsing items: " + itemsJson, e);
-						throw new IllegalArgumentException("No items");
-					} catch (JSONException e) {
-						LOG.error("Error parsing items: " + itemsJson, e);
-						throw new IllegalArgumentException("No items");
 					}
-					while (!collecting && (entry = zis.getNextEntry()) != null) {
+					while ((entry = zis.getNextEntry()) != null) {
 						String fileName = entry.getName();
-						SettingsItem item = itemsFactory.getItemByFileName(fileName);
-						if (item != null) {
+						SettingsItem item = null;
+						for (SettingsItem settingsItem : items) {
+							if (settingsItem != null && settingsItem.getFileName().equals(fileName)) {
+								item = settingsItem;
+								break;
+							}
+						}
+						if (item != null && collecting && item.shouldReadOnCollecting()
+								|| item != null && !collecting && !item.shouldReadOnCollecting()) {
 							try {
 								item.getReader().readFromStream(ois);
 							} catch (IllegalArgumentException e) {
@@ -889,145 +1783,189 @@ public class SettingsHelper {
 	}
 
 	@SuppressLint("StaticFieldLeak")
-	private class ImportAsyncTask extends AsyncTask<Void, Void, List<SettingsItem>> {
+	public class ImportAsyncTask extends AsyncTask<Void, Void, List<SettingsItem>> {
 
 		private File file;
 		private String latestChanges;
 		private int version;
 
-		private SettingsImportListener listener;
+		private SettingsImportListener importListener;
+		private SettingsCollectListener collectListener;
+		private CheckDuplicatesListener duplicatesListener;
 		private SettingsImporter importer;
-		private List<SettingsItem> items;
-		private List<SettingsItem> processedItems = new ArrayList<>();
-		private SettingsItem currentItem;
-		private AlertDialog dialog;
 
-		ImportAsyncTask(@NonNull File settingsFile, String latestChanges, int version, @Nullable SettingsImportListener listener) {
-			this.file = settingsFile;
-			this.listener = listener;
+		private List<SettingsItem> items = new ArrayList<>();
+		private List<SettingsItem> selectedItems = new ArrayList<>();
+		private List<Object> duplicates;
+
+		private ImportType importType;
+		private boolean importDone;
+
+		ImportAsyncTask(@NonNull File file, String latestChanges, int version, @Nullable SettingsCollectListener collectListener) {
+			this.file = file;
+			this.collectListener = collectListener;
 			this.latestChanges = latestChanges;
 			this.version = version;
 			importer = new SettingsImporter(app);
+			importType = ImportType.COLLECT;
+		}
+
+		ImportAsyncTask(@NonNull File file, @NonNull List<SettingsItem> items, String latestChanges, int version, @Nullable SettingsImportListener importListener) {
+			this.file = file;
+			this.importListener = importListener;
+			this.items = items;
+			this.latestChanges = latestChanges;
+			this.version = version;
+			importer = new SettingsImporter(app);
+			importType = ImportType.IMPORT;
+		}
+
+		ImportAsyncTask(@NonNull File file, @NonNull List<SettingsItem> items, @NonNull List<SettingsItem> selectedItems, @Nullable CheckDuplicatesListener duplicatesListener) {
+			this.file = file;
+			this.items = items;
+			this.duplicatesListener = duplicatesListener;
+			this.selectedItems = selectedItems;
+			importer = new SettingsImporter(app);
+			importType = ImportType.CHECK_DUPLICATES;
 		}
 
 		@Override
 		protected void onPreExecute() {
-			if (importing) {
-				finishImport(listener, false, false, items);
+			ImportAsyncTask importTask = SettingsHelper.this.importTask;
+			if (importTask != null && !importTask.importDone) {
+				finishImport(importListener, false, items);
 			}
-			importing = true;
-			importSuspended = false;
-			importTask = this;
+			SettingsHelper.this.importTask = this;
 		}
 
 		@Override
 		protected List<SettingsItem> doInBackground(Void... voids) {
-			try {
-				return importer.collectItems(file);
-			} catch (IllegalArgumentException e) {
-				LOG.error("Failed to collect items from: " + file.getName(), e);
-			} catch (IOException e) {
-				LOG.error("Failed to collect items from: " + file.getName(), e);
+			switch (importType) {
+				case COLLECT:
+					try {
+						return importer.collectItems(file);
+					} catch (IllegalArgumentException e) {
+						LOG.error("Failed to collect items from: " + file.getName(), e);
+					} catch (IOException e) {
+						LOG.error("Failed to collect items from: " + file.getName(), e);
+					}
+					break;
+				case CHECK_DUPLICATES:
+					this.duplicates = getDuplicatesData(selectedItems);
+					return selectedItems;
+				case IMPORT:
+					return items;
 			}
 			return null;
 		}
 
 		@Override
-		protected void onPostExecute(List<SettingsItem> items) {
-			this.items = items;
-			if (items != null && items.size() > 0) {
-				processNextItem();
-			}
-		}
-
-		private void processNextItem() {
-			if (activity == null) {
-				return;
-			}
-			if (items.size() == 0 && !importSuspended) {
-				if (processedItems.size() > 0) {
-					new ImportItemsAsyncTask(file, listener, processedItems).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-				} else {
-					finishImport(listener, false, true, items);
-				}
-				return;
-			}
-			final SettingsItem item;
-			if (importSuspended && currentItem != null) {
-				item = currentItem;
-			} else if (items.size() > 0) {
-				item = items.remove(0);
-				currentItem = item;
+		protected void onPostExecute(@Nullable List<SettingsItem> items) {
+			if (items != null && importType != ImportType.CHECK_DUPLICATES) {
+				this.items = items;
 			} else {
-				item = null;
+				selectedItems = items;
 			}
-			importSuspended = false;
-			if (item != null) {
-				if (item.exists()) {
-					switch (item.getType()) {
-						case PROFILE: {
-							String title = activity.getString(R.string.overwrite_profile_q, item.getPublicName(app));
-							dialog = showConfirmDialog(item, title, latestChanges);
-							break;
+			switch (importType) {
+				case COLLECT:
+					importDone = true;
+					collectListener.onSettingsCollectFinished(true, false, this.items);
+					break;
+				case CHECK_DUPLICATES:
+					importDone = true;
+					if (duplicatesListener != null) {
+						duplicatesListener.onDuplicatesChecked(duplicates, selectedItems);
+					}
+					break;
+				case IMPORT:
+					if (items != null && items.size() > 0) {
+						for (SettingsItem item : items) {
+							item.apply();
 						}
-						case FILE:
-							// overwrite now
-							acceptItem(item);
-							break;
-						default:
-							acceptItem(item);
-							break;
+						new ImportItemsAsyncTask(file, importListener, items).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 					}
-				} else {
-					if (item.getType() == SettingsItemType.PROFILE) {
-						String title = activity.getString(R.string.add_new_profile_q, item.getPublicName(app));
-						dialog = showConfirmDialog(item, title, latestChanges);
-					} else {
-						acceptItem(item);
-					}
-				}
-			} else {
-				processNextItem();
+					break;
 			}
 		}
 
-		private AlertDialog showConfirmDialog(final SettingsItem item, String title, String message) {
-			AlertDialog.Builder b = new AlertDialog.Builder(activity);
-			b.setTitle(title);
-			b.setMessage(message);
-			b.setPositiveButton(R.string.shared_string_yes, new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface dialog, int which) {
-					acceptItem(item);
-				}
-			});
-			b.setNegativeButton(R.string.shared_string_no, new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface dialog, int which) {
-					processNextItem();
-				}
-			});
-			b.setOnDismissListener(new DialogInterface.OnDismissListener() {
-				@Override
-				public void onDismiss(DialogInterface dialog) {
-					ImportAsyncTask.this.dialog = null;
-				}
-			});
-			b.setCancelable(false);
-			return b.show();
+		public List<SettingsItem> getItems() {
+			return items;
 		}
 
-		private void suspendImport() {
-			if (dialog != null) {
-				dialog.dismiss();
-				dialog = null;
+		public File getFile() {
+			return file;
+		}
+
+		public void setImportListener(SettingsImportListener importListener) {
+			this.importListener = importListener;
+		}
+
+		public void setDuplicatesListener(CheckDuplicatesListener duplicatesListener) {
+			this.duplicatesListener = duplicatesListener;
+		}
+
+		ImportType getImportType() {
+			return importType;
+		}
+
+		boolean isImportDone() {
+			return importDone;
+		}
+
+		public List<Object> getDuplicates() {
+			return duplicates;
+		}
+
+		public List<SettingsItem> getSelectedItems() {
+			return selectedItems;
+		}
+
+		private List<Object> getDuplicatesData(List<SettingsItem> items) {
+			List<Object> duplicateItems = new ArrayList<>();
+			for (SettingsItem item : items) {
+				if (item instanceof ProfileSettingsItem) {
+					if (item.exists()) {
+						duplicateItems.add(((ProfileSettingsItem) item).getModeBean());
+					}
+				} else if (item instanceof CollectionSettingsItem) {
+					List duplicates = ((CollectionSettingsItem) item).excludeDuplicateItems();
+					if (!duplicates.isEmpty()) {
+						duplicateItems.addAll(duplicates);
+					}
+				} else if (item instanceof FileSettingsItem) {
+					if (item.exists()) {
+						duplicateItems.add(((FileSettingsItem) item).getFile());
+					}
+				}
 			}
+			return duplicateItems;
 		}
+	}
 
-		private void acceptItem(SettingsItem item) {
-			item.apply();
-			processedItems.add(item);
-			processNextItem();
+	@Nullable
+	public ImportAsyncTask getImportTask() {
+		return importTask;
+	}
+
+	@Nullable
+	public ImportType getImportTaskType() {
+		ImportAsyncTask importTask = this.importTask;
+		return importTask != null ? importTask.getImportType() : null;
+	}
+
+	public boolean isImportDone() {
+		ImportAsyncTask importTask = this.importTask;
+		return importTask == null || importTask.isImportDone();
+	}
+
+	public boolean isFileExporting(File file) {
+		return exportAsyncTasks.containsKey(file);
+	}
+
+	public void updateExportListener(File file, SettingsExportListener listener) {
+		ExportAsyncTask exportAsyncTask = exportAsyncTasks.get(file);
+		if (exportAsyncTask != null) {
+			exportAsyncTask.listener = listener;
 		}
 	}
 
@@ -1063,16 +2001,14 @@ public class SettingsHelper {
 
 		@Override
 		protected void onPostExecute(Boolean success) {
-			finishImport(listener, success, false, items);
+			finishImport(listener, success, items);
 		}
 	}
 
-	private void finishImport(@Nullable SettingsImportListener listener, boolean success, boolean empty, List<SettingsItem> items) {
-		importing = false;
-		importSuspended = false;
+	private void finishImport(@Nullable SettingsImportListener listener, boolean success, @NonNull List<SettingsItem> items) {
 		importTask = null;
 		if (listener != null) {
-			listener.onSettingsImportFinished(success, empty, items);
+			listener.onSettingsImportFinished(success, items);
 		}
 	}
 
@@ -1109,25 +2045,41 @@ public class SettingsHelper {
 
 		@Override
 		protected void onPostExecute(Boolean success) {
+			exportAsyncTasks.remove(file);
 			if (listener != null) {
 				listener.onSettingsExportFinished(file, success);
 			}
 		}
 	}
 
-	public void importSettings(@NonNull File settingsFile, String latestChanges, int version, @Nullable SettingsImportListener listener) {
+	public void collectSettings(@NonNull File settingsFile, String latestChanges, int version,
+								@Nullable SettingsCollectListener listener) {
 		new ImportAsyncTask(settingsFile, latestChanges, version, listener).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 	}
 
-	public void exportSettings(@NonNull File fileDir, @NonNull String fileName,
-							   @Nullable SettingsExportListener listener,
-							   @NonNull List<SettingsItem> items) {
-		new ExportAsyncTask(new File(fileDir, fileName + OSMAND_SETTINGS_FILE_EXT), listener, items)
-				.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+	public void checkDuplicates(@NonNull File file, @NonNull List<SettingsItem> items, @NonNull List<SettingsItem> selectedItems, CheckDuplicatesListener listener) {
+		new ImportAsyncTask(file, items, selectedItems, listener).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+	}
+
+	public void importSettings(@NonNull File settingsFile, @NonNull List<SettingsItem> items, String latestChanges, int version, @Nullable SettingsImportListener listener) {
+		new ImportAsyncTask(settingsFile, items, latestChanges, version, listener).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+	}
+
+	public void exportSettings(@NonNull File fileDir, @NonNull String fileName, @Nullable SettingsExportListener listener, @NonNull List<SettingsItem> items) {
+		File file = new File(fileDir, fileName + OSMAND_SETTINGS_FILE_EXT);
+		ExportAsyncTask exportAsyncTask = new ExportAsyncTask(file, listener, items);
+		exportAsyncTasks.put(file, exportAsyncTask);
+		exportAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 	}
 
 	public void exportSettings(@NonNull File fileDir, @NonNull String fileName, @Nullable SettingsExportListener listener,
 							   @NonNull SettingsItem... items) {
 		exportSettings(fileDir, fileName, listener, new ArrayList<>(Arrays.asList(items)));
+	}
+
+	public enum ImportType {
+		COLLECT,
+		CHECK_DUPLICATES,
+		IMPORT
 	}
 }

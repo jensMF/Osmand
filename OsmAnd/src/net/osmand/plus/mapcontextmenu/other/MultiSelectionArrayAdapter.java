@@ -1,18 +1,19 @@
 package net.osmand.plus.mapcontextmenu.other;
 
 import android.graphics.drawable.Drawable;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.content.ContextCompat;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+
 import net.osmand.AndroidUtils;
-import net.osmand.plus.UiUtilities;
 import net.osmand.plus.R;
+import net.osmand.plus.UiUtilities;
 
 import java.util.List;
 
@@ -53,6 +54,12 @@ public class MultiSelectionArrayAdapter extends ArrayAdapter<MapMultiSelectionMe
 			UiUtilities iconsCache = menu.getMapActivity().getMyApplication().getUIUtilities();
 			final View iconLayout = convertView.findViewById(R.id.context_menu_icon_layout);
 			final ImageView iconView = (ImageView) convertView.findViewById(R.id.context_menu_icon_view);
+			if (item.getPointDescription().isFavorite() || item.getPointDescription().isWpt()) {
+				int iconSize = getContext().getResources().getDimensionPixelSize(R.dimen.dialog_button_height);
+				iconView.getLayoutParams().height = iconSize;
+				iconView.getLayoutParams().width = iconSize;
+				iconView.requestLayout();
+			}
 			Drawable icon = item.getRightIcon();
 			int iconId = item.getRightIconId();
 			if (icon != null) {

@@ -8,11 +8,6 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.AdapterView;
@@ -21,6 +16,12 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import net.osmand.AndroidUtils;
 import net.osmand.GPXUtilities;
@@ -426,7 +427,7 @@ public class MapActivityActions implements DialogProvider {
 					mapActivity.getContextMenu().close();
 					MeasurementToolFragment.showInstance(mapActivity.getSupportFragmentManager(), new LatLon(latitude, longitude));
 				} else if (standardId == R.string.avoid_road) {
-					getMyApplication().getAvoidSpecificRoads().addImpassableRoad(mapActivity, new LatLon(latitude, longitude), true, false);
+					getMyApplication().getAvoidSpecificRoads().addImpassableRoad(mapActivity, new LatLon(latitude, longitude), true, false, null);
 				}
 			}
 		});
@@ -673,7 +674,7 @@ public class MapActivityActions implements DialogProvider {
 		for (final ApplicationMode appMode : activeModes) {
 			if (appMode.isCustomProfile()) {
 				modeDescription = String.format(app.getString(R.string.profile_type_descr_string),
-						Algorithms.capitalizeFirstLetterAndLowercase(appMode.getParent().toHumanString(app)));
+						Algorithms.capitalizeFirstLetterAndLowercase(appMode.getParent().toHumanString()));
 			} else {
 				modeDescription = getString(R.string.profile_type_base_string);
 			}
@@ -684,7 +685,7 @@ public class MapActivityActions implements DialogProvider {
 					.setIcon(appMode.getIconRes())
 					.setColor(appMode.getIconColorInfo().getColor(nightMode))
 					.setTag(tag)
-					.setTitle(appMode.toHumanString(app))
+					.setTitle(appMode.toHumanString())
 					.setDescription(modeDescription)
 					.setListener(new ItemClickListener() {
 						@Override
@@ -803,7 +804,7 @@ public class MapActivityActions implements DialogProvider {
 
 		optionsMenuHelper.addItem(new ItemBuilder().setTitleId(R.string.configure_map, mapActivity)
 				.setId(DRAWER_CONFIGURE_MAP_ID)
-				.setIcon(R.drawable.ic_action_layers_dark)
+				.setIcon(R.drawable.ic_action_layers)
 				.setListener(new ItemClickListener() {
 					@Override
 					public boolean onContextMenuClick(ArrayAdapter<ContextMenuItem> adapter, int itemId, int pos, boolean isChecked, int[] viewCoordinates) {
@@ -943,7 +944,7 @@ public class MapActivityActions implements DialogProvider {
 
 		/*
 		optionsMenuHelper.addItem(new ContextMenuItem.ItemBuilder().setTitleId(R.string.configure_map, mapActivity)
-				.setIcon(R.drawable.ic_action_layers_dark)
+				.setIcon(R.drawable.ic_action_layers)
 				.setListener(new ContextMenuAdapter.ItemClickListener() {
 					@Override
 					public boolean onContextMenuClick(ArrayAdapter<ContextMenuItem> adapter, int itemId, int pos, boolean isChecked) {
@@ -994,7 +995,7 @@ public class MapActivityActions implements DialogProvider {
 		String modeDescription;
 		if (currentMode.isCustomProfile()) {
 			modeDescription = String.format(app.getString(R.string.profile_type_descr_string),
-					Algorithms.capitalizeFirstLetterAndLowercase(currentMode.getParent().toHumanString(app)));
+					Algorithms.capitalizeFirstLetterAndLowercase(currentMode.getParent().toHumanString()));
 		} else {
 			modeDescription = getString(R.string.profile_type_base_string);
 		}
@@ -1004,7 +1005,7 @@ public class MapActivityActions implements DialogProvider {
 				.setIcon(currentMode.getIconRes())
 				.setSecondaryIcon(icArrowResId)
 				.setColor(currentMode.getIconColorInfo().getColor(nightMode))
-				.setTitle(currentMode.toHumanString(app))
+				.setTitle(currentMode.toHumanString())
 				.setDescription(modeDescription)
 				.setListener(new ItemClickListener() {
 					@Override

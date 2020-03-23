@@ -2,15 +2,8 @@ package net.osmand.plus.profiles;
 
 import android.annotation.SuppressLint;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.view.MotionEventCompat;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.helper.ItemTouchHelper;
 import android.text.SpannableString;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -20,10 +13,18 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+import androidx.core.view.MotionEventCompat;
+import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import net.osmand.AndroidUtils;
 import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.OsmandApplication;
-import net.osmand.plus.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
@@ -65,7 +66,7 @@ public class EditProfilesFragment extends BaseOsmAndFragment {
 		}
 		nightMode = !app.getSettings().isLightContent();
 
-		View mainView = UiUtilities.getInflater(getContext(), nightMode).inflate(R.layout.edit_profiles_list_fragment, container, false);
+		View mainView = UiUtilities.getInflater(getContext(), nightMode).inflate(R.layout.edit_arrangement_list_fragment, container, false);
 		ImageButton closeButton = mainView.findViewById(R.id.close_button);
 		closeButton.setImageResource(R.drawable.ic_action_remove_dark);
 		closeButton.setOnClickListener(new View.OnClickListener() {
@@ -150,7 +151,6 @@ public class EditProfilesFragment extends BaseOsmAndFragment {
 				MapActivity mapActivity = (MapActivity) getActivity();
 				if (mapActivity != null) {
 					OsmandApplication app = mapActivity.getMyApplication();
-					OsmandSettings settings = app.getSettings();
 
 					if (!deletedModesKeys.isEmpty()) {
 						List<ApplicationMode> deletedModes = new ArrayList<>();
@@ -161,9 +161,6 @@ public class EditProfilesFragment extends BaseOsmAndFragment {
 							}
 						}
 						ApplicationMode.deleteCustomModes(deletedModes, app);
-						if (deletedModes.contains(settings.APPLICATION_MODE.get())) {
-							settings.APPLICATION_MODE.resetToDefault();
-						}
 					}
 					for (ApplicationMode mode : ApplicationMode.allPossibleValues()) {
 						String modeKey = mode.getStringKey();
@@ -174,18 +171,16 @@ public class EditProfilesFragment extends BaseOsmAndFragment {
 						mode.setOrder(order);
 					}
 					ApplicationMode.reorderAppModes();
-					ApplicationMode.saveAppModesToSettings(app);
 					mapActivity.onBackPressed();
 				}
 			}
 		});
 
-		return mainView;
-	}
+		if (Build.VERSION.SDK_INT >= 21) {
+			AndroidUtils.addStatusBarPadding21v(app, mainView);
+		}
 
-	@Override
-	protected boolean isFullScreenAllowed() {
-		return false;
+		return mainView;
 	}
 
 	@Override
@@ -239,7 +234,7 @@ public class EditProfilesFragment extends BaseOsmAndFragment {
 				if (order == null) {
 					order = mode.getOrder();
 				}
-				profiles.add(new EditProfileDataObject(modeKey, mode.toHumanString(getContext()), BaseSettingsFragment.getAppModeDescription(getContext(), mode),
+				profiles.add(new EditProfileDataObject(modeKey, mode.toHumanString(), BaseSettingsFragment.getAppModeDescription(getContext(), mode),
 						mode.getIconRes(), false, mode.isCustomProfile(), deleted, mode.getIconColorInfo(), order));
 			}
 		}
@@ -273,7 +268,7 @@ public class EditProfilesFragment extends BaseOsmAndFragment {
 		private boolean deleted;
 		private boolean customProfile;
 
-		EditProfileDataObject(String stringKey, String name, String descr, int iconRes, boolean isSelected, boolean customProfile, boolean deleted, ApplicationMode.ProfileIconColors iconColor, int order) {
+		EditProfileDataObject(String stringKey, String name, String descr, int iconRes, boolean isSelected, boolean customProfile, boolean deleted, ProfileIconColors iconColor, int order) {
 			super(name, descr, stringKey, iconRes, isSelected, iconColor);
 			this.customProfile = customProfile;
 			this.deleted = deleted;

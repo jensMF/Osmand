@@ -11,15 +11,6 @@ import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.support.annotation.ColorInt;
-import android.support.annotation.ColorRes;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.design.widget.Snackbar;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.graphics.drawable.DrawableCompat;
-import android.support.v7.widget.SwitchCompat;
 import android.text.ClipboardManager;
 import android.util.TypedValue;
 import android.view.View;
@@ -31,6 +22,16 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.ColorInt;
+import androidx.annotation.ColorRes;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
+
+import com.google.android.material.snackbar.Snackbar;
 import com.jwetherell.openmap.common.LatLonPoint;
 import com.jwetherell.openmap.common.UTMPoint;
 
@@ -102,7 +103,7 @@ public class MapInfoWidgetsFactory {
 				Location loc = map.getMyApplication().getLocationProvider().getLastKnownLocation();
 				if (loc != null && loc.hasAltitude()) {
 					double compAlt = loc.getAltitude();
-					if (cachedAlt != (int) compAlt) {
+					if (isUpdateNeeded() || cachedAlt != (int) compAlt) {
 						cachedAlt = (int) compAlt;
 						String ds = OsmAndFormatter.getFormattedAlt(cachedAlt, map.getMyApplication());
 						int ls = ds.lastIndexOf(' ');
@@ -120,6 +121,11 @@ public class MapInfoWidgetsFactory {
 				}
 				return false;
 			}
+
+			@Override
+			public boolean isMetricSystemDepended() {
+				return true;
+			}
 		};
 		altitudeControl.setText(null, null);
 		altitudeControl.setIcons(R.drawable.widget_altitude_day, R.drawable.widget_altitude_night);
@@ -136,7 +142,7 @@ public class MapInfoWidgetsFactory {
 			@Override
 			public boolean updateInfo(DrawSettings d) {
 				GPSInfo gpsInfo = loc.getGPSInfo();
-				if (gpsInfo.usedSatellites != u || gpsInfo.foundSatellites != f) {
+				if (isUpdateNeeded() || gpsInfo.usedSatellites != u || gpsInfo.foundSatellites != f) {
 					u = gpsInfo.usedSatellites;
 					f = gpsInfo.foundSatellites;
 					setText(gpsInfo.usedSatellites + "/" + gpsInfo.foundSatellites, "");
@@ -1017,11 +1023,13 @@ public class MapInfoWidgetsFactory {
 						}
 
 						if (showExitInfo) {
-							text = exitInfo.getExitStreetName();
+							if(!Algorithms.isEmpty(exitInfo.getExitStreetName())) {
+								text = exitInfo.getExitStreetName();
+							}
 						}
 
-						if (nextDirInfo.directionInfo.getRouteDataObject() != null) {
-							object = nextDirInfo.directionInfo.getRouteDataObject();
+						if (directionInfo != null && directionInfo.getRouteDataObject() != null) {
+							object = directionInfo.getRouteDataObject();
 							showShield = true;
 						}
 					}
@@ -1400,8 +1408,7 @@ public class MapInfoWidgetsFactory {
 							ctx.startActivity(Intent.createChooser(intent, ctx.getString(R.string.send_location)));
 						}
 					});
-			AndroidUtils.setSnackbarTextColor(snackbar, R.color.active_color_primary_dark);
-			AndroidUtils.setSnackbarTextMaxLines(snackbar, 5);
+			UiUtilities.setupSnackbar(snackbar, nightMode, 5);
 			snackbar.show();
 		}
 

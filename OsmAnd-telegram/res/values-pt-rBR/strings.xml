@@ -243,7 +243,7 @@
     <string name="min_logging_speed">Velocidade mínima de registro</string>
     <string name="min_logging_speed_descr">Filtro: sem registro abaixo da velocidade selecionada</string>
     <string name="gpx_settings">Configurações de GPX</string>
-    <string name="timeline_no_data_descr">Nós não coletamos dados para o dia selecionado</string>
+    <string name="timeline_no_data_descr">Não coletamos dados para o dia selecionado</string>
     <string name="timeline_no_data">Sem dados</string>
     <string name="shared_string_end">Fim</string>
     <string name="shared_string_start">Iniciar</string>
@@ -263,4 +263,10 @@
     <string name="shared_string_suggested">Sugerido</string>
     <string name="status_widget_title">Status do OsmAnd Tracker</string>
     <string name="back_to_osmand">Voltar para OsmAnd</string>
+    <string name="last_update_from_telegram_date">Última atualização do Telegram: %1$s</string>
+    <string name="last_response_date">Última resposta: %1$s</string>
+    <string name="last_update_from_telegram_duration">Última atualização do Telegram: %1$s atrás</string>
+    <string name="last_response_duration">Última resposta: %1$s atrás</string>
+    <string name="duration_ago">%1$s atrás</string>
+    <string name="shared_string_error_short">ERR</string>
 </resources>

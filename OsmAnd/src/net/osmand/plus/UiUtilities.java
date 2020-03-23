@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
@@ -11,32 +12,48 @@ import android.graphics.drawable.RippleDrawable;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.os.Build;
-import android.support.annotation.ColorInt;
-import android.support.annotation.ColorRes;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.StringRes;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.graphics.drawable.DrawableCompat;
-import android.support.v4.widget.TintableCompoundButton;
-import android.support.v7.view.ContextThemeWrapper;
-import android.support.v7.widget.SwitchCompat;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.StyleSpan;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import androidx.annotation.ColorInt;
+import androidx.annotation.ColorRes;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.StringRes;
+import androidx.appcompat.view.ContextThemeWrapper;
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.widget.TintableCompoundButton;
+
+import com.google.android.material.snackbar.Snackbar;
+
 import net.osmand.AndroidUtils;
 import net.osmand.Location;
+import net.osmand.PlatformUtil;
 import net.osmand.data.LatLon;
 import net.osmand.plus.views.DirectionDrawable;
 import net.osmand.plus.widgets.TextViewEx;
 
+import org.apache.commons.logging.Log;
+
+import java.util.Locale;
+
 import gnu.trove.map.hash.TLongObjectHashMap;
 
 public class UiUtilities {
+
+	private static final Log LOG = PlatformUtil.getLog(UiUtilities.class);
 
 	private TLongObjectHashMap<Drawable> drawableCache = new TLongObjectHashMap<>();
 	private OsmandApplication app;
@@ -123,6 +140,10 @@ public class UiUtilities {
 		return getDrawable(id, light ? R.color.icon_color_default_light : R.color.icon_color_default_dark);
 	}
 
+	public Drawable getMapIcon(@DrawableRes int id, boolean light) {
+		return getDrawable(id, light ? R.color.icon_color_default_light : 0);
+	}
+
 	public static Drawable getSelectableDrawable(Context ctx) {
 		int bgResId = AndroidUtils.resolveAttribute(ctx, R.attr.selectableItemBackground);
 		if (bgResId != 0) {
@@ -142,6 +163,10 @@ public class UiUtilities {
 			drawable = AndroidUtils.createPressedStateListDrawable(new ColorDrawable(Color.TRANSPARENT), new ColorDrawable(getColorWithAlpha(color, alpha)));
 		}
 		return drawable;
+	}
+
+	public static Drawable createTintedDrawable(Context context, @DrawableRes int resId, int color) {
+		return tintDrawable(ContextCompat.getDrawable(context, resId), color);
 	}
 
 	public static Drawable tintDrawable(Drawable drawable, int color) {
@@ -330,6 +355,48 @@ public class UiUtilities {
 		}
 		return screenOrientation;
 	}
+	
+	public static void setupSnackbar(Snackbar snackbar, boolean nightMode) {
+		setupSnackbar(snackbar, nightMode, null, null, null, null);
+	}
+	
+	public static void setupSnackbar(Snackbar snackbar, boolean nightMode, Integer maxLines) {
+		setupSnackbar(snackbar, nightMode, null, null, null, maxLines);
+	}
+	
+	public static void setupSnackbar(Snackbar snackbar, boolean nightMode, @ColorRes Integer backgroundColor,
+	                                 @ColorRes Integer messageColor, @ColorRes Integer actionColor, Integer maxLines) {
+		if (snackbar == null) {
+			return;
+		}
+		View view = snackbar.getView();
+		Context ctx = view.getContext();
+		TextView tvMessage = (TextView) view.findViewById(com.google.android.material.R.id.snackbar_text);
+		TextView tvAction = (TextView) view.findViewById(com.google.android.material.R.id.snackbar_action);
+		if (messageColor == null) {
+			messageColor = nightMode ? R.color.text_color_primary_dark : R.color.text_color_primary_light;
+		}
+		tvMessage.setTextColor(ContextCompat.getColor(ctx, messageColor));
+		if (actionColor == null) {
+			actionColor = nightMode ? R.color.active_color_primary_dark : R.color.active_color_primary_light;
+		}
+		tvAction.setTextColor(ContextCompat.getColor(ctx, actionColor));
+		if (maxLines != null) {
+			tvMessage.setMaxLines(maxLines);
+		}
+		if (backgroundColor == null) {
+			backgroundColor = nightMode ? R.color.list_background_color_dark : R.color.list_background_color_light;
+		}
+		view.setBackgroundColor(ContextCompat.getColor(ctx, backgroundColor));
+	}
+
+	public static void rotateImageByLayoutDirection(ImageView image, int layoutDirection) {
+		if (image == null) {
+			return;
+		}
+		int rotation = layoutDirection == ViewCompat.LAYOUT_DIRECTION_RTL ? 180 : 0;
+		image.setRotationY(rotation);
+	}
 
 	public static void setupCompoundButtonDrawable(Context ctx, boolean nightMode, @ColorInt int activeColor, Drawable drawable) {
 		int inactiveColor = ContextCompat.getColor(ctx, nightMode ? R.color.icon_color_default_dark : R.color.icon_color_default_light);
@@ -365,7 +432,7 @@ public class UiUtilities {
 				activeColor = ContextCompat.getColor(app, appMode.getIconColorInfo().getColor(nightMode));
 				break;
 			case TOOLBAR:
-				activeColor = ContextCompat.getColor(app, nightMode ? R.color.text_color_tab_active_dark : R.color.text_color_tab_active_light);
+				activeColor = Color.WHITE;
 				inactiveColorPrimary = activeColor;
 				inactiveColorSecondary = UiUtilities.getColorWithAlpha(Color.BLACK, 0.25f);
 				break;
@@ -402,22 +469,29 @@ public class UiUtilities {
 		compoundButton.setBackgroundColor(Color.TRANSPARENT);
 	}
 	
-	public static void setupSeekBar(OsmandApplication app, SeekBar seekBar, boolean nightMode, boolean profileDependent) {
+	public static void setupSeekBar(@NonNull OsmandApplication app, @NonNull SeekBar seekBar, 
+	                                boolean nightMode, boolean profileDependent) {
 		int activeColor = ContextCompat.getColor(app, profileDependent ?
 				app.getSettings().APPLICATION_MODE.get().getIconColorInfo().getColor(nightMode) :
 				nightMode ? R.color.active_color_primary_dark : R.color.active_color_primary_light);
 		setupSeekBar(seekBar, activeColor, nightMode);
 	}
 
-	public static void setupSeekBar(SeekBar seekBar, @ColorInt int activeColor, boolean nightMode) {
-		int backgroundColor = ContextCompat.getColor(seekBar.getContext(),
-				nightMode ? R.color.icon_color_secondary_dark : R.color.icon_color_default_light);
+	public static void setupSeekBar(@NonNull SeekBar seekBar, @ColorInt int activeColor, boolean nightMode) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-			LayerDrawable progressBarDrawable = (LayerDrawable) seekBar.getProgressDrawable();
-			Drawable backgroundDrawable = progressBarDrawable.getDrawable(0);
-			Drawable progressDrawable = progressBarDrawable.getDrawable(2);
-			backgroundDrawable.setColorFilter(backgroundColor, PorterDuff.Mode.SRC_IN);
-			progressDrawable.setColorFilter(activeColor, PorterDuff.Mode.SRC_IN);
+			int backgroundColor = ContextCompat.getColor(seekBar.getContext(), nightMode
+					? R.color.icon_color_secondary_dark : R.color.icon_color_default_light);
+			if (seekBar.getProgressDrawable() instanceof LayerDrawable) {
+				LayerDrawable progressDrawable = (LayerDrawable) seekBar.getProgressDrawable();
+				Drawable background = progressDrawable.findDrawableByLayerId(android.R.id.background);
+				if (background != null) {
+					background.setColorFilter(backgroundColor, PorterDuff.Mode.SRC_IN);
+				}
+				Drawable progress = progressDrawable.findDrawableByLayerId(android.R.id.progress);
+				if (progress != null) {
+					progress.setColorFilter(activeColor, PorterDuff.Mode.SRC_IN);
+				}
+			}
 			seekBar.getThumb().setColorFilter(activeColor, PorterDuff.Mode.SRC_IN);
 		}
 	}
@@ -482,5 +556,29 @@ public class UiUtilities {
 
 	public static Context getThemedContext(Context context, boolean nightMode, int lightStyle, int darkStyle) {
 		return new ContextThemeWrapper(context, nightMode ? darkStyle : lightStyle);
+	}
+
+	public static void setMargins(View v, int l, int t, int r, int b) {
+		if (v.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+			ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+			p.setMargins(l, t, r, b);
+			v.requestLayout();
+		}
+	}
+
+	public static SpannableString createSpannableString(@NonNull String text, @NonNull String textToStyle, @NonNull StyleSpan styleSpan) {
+		SpannableString spannable = new SpannableString(text);
+		try {
+			int startIndex = text.indexOf(textToStyle);
+			spannable.setSpan(
+					styleSpan,
+					startIndex,
+					startIndex + textToStyle.length(),
+					Spanned.SPAN_INCLUSIVE_INCLUSIVE);
+			return spannable;
+		} catch (RuntimeException e) {
+			LOG.error("Error trying to find index of " + textToStyle + " " + e);
+			return spannable;
+		}
 	}
 }

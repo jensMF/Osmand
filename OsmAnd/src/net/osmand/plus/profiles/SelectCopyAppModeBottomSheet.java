@@ -1,9 +1,10 @@
 package net.osmand.plus.profiles;
 
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
+
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 
 import net.osmand.PlatformUtil;
 import net.osmand.plus.ApplicationMode;
@@ -103,9 +104,10 @@ public class SelectCopyAppModeBottomSheet extends AppModesBottomSheetDialogFragm
 
 	@Override
 	protected void onRightBottomButtonClick() {
-		OsmandApplication app = getMyApplication();
-		if (app != null && selectedAppMode != null) {
-			app.getSettings().copyPreferencesFromProfile(selectedAppMode, currentAppMode);
+		Fragment targetFragment = getTargetFragment();
+		if (selectedAppMode != null && targetFragment instanceof CopyAppModePrefsListener) {
+			CopyAppModePrefsListener listener = (CopyAppModePrefsListener) targetFragment;
+			listener.copyAppModePrefs(selectedAppMode);
 		}
 		dismiss();
 	}
@@ -126,5 +128,9 @@ public class SelectCopyAppModeBottomSheet extends AppModesBottomSheetDialogFragm
 		} catch (RuntimeException e) {
 			LOG.error("showInstance", e);
 		}
+	}
+
+	public interface CopyAppModePrefsListener {
+		void copyAppModePrefs(ApplicationMode appMode);
 	}
 }

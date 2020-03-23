@@ -1,15 +1,9 @@
 package net.osmand.plus.download.ui;
 
 import android.content.res.TypedArray;
-import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v4.app.DialogFragment;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.Toolbar;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.TypedValue;
@@ -28,6 +22,13 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.FragmentActivity;
+
+import net.osmand.AndroidUtils;
 import net.osmand.Collator;
 import net.osmand.CollatorStringMatcher;
 import net.osmand.OsmAndCollator;
@@ -63,6 +64,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 public class SearchDialogFragment extends DialogFragment implements DownloadEvents, OnItemClickListener {
 
@@ -112,7 +114,8 @@ public class SearchDialogFragment extends DialogFragment implements DownloadEven
 		int iconColorResId = isLightContent ? R.color.active_buttons_and_links_text_light : R.color.active_buttons_and_links_text_dark;
 
 		Toolbar toolbar = (Toolbar) view.findViewById(R.id.toolbar);
-		Drawable icBack = getMyApplication().getUIUtilities().getIcon(R.drawable.ic_arrow_back, iconColorResId);
+		Drawable icBack = getMyApplication().getUIUtilities().getIcon(
+				AndroidUtils.getNavigationIconResId(getContext()), iconColorResId);
 		toolbar.setNavigationIcon(icBack);
 		toolbar.setNavigationContentDescription(R.string.access_shared_string_navigate_up);
 		toolbar.setNavigationOnClickListener(new View.OnClickListener() {
@@ -416,15 +419,16 @@ public class SearchDialogFragment extends DialogFragment implements DownloadEven
 			@Override
 			protected IndexItem doInBackground(Void... params) {
 				Amenity amenity = cityItem.getAmenity();
-				BinaryMapDataObject o = null;
+				WorldRegion downloadRegion = null;
 				try {
-					o = osmandRegions.getSmallestBinaryMapDataObjectAt(amenity.getLocation());
+					Map.Entry<WorldRegion, BinaryMapDataObject> res = osmandRegions.getSmallestBinaryMapDataObjectAt(amenity.getLocation());
+					if(res != null) {
+						downloadRegion = res.getKey();
+					}
 				} catch (IOException e) {
 					// ignore
 				}
-				if (o != null) {
-					String selectedFullName = osmandRegions.getFullName(o);
-					WorldRegion downloadRegion = osmandRegions.getRegionData(selectedFullName);
+				if (downloadRegion != null) {
 					List<IndexItem> indexItems = ctx.getDownloadThread().getIndexes().getIndexItems(downloadRegion);
 					for (IndexItem item : indexItems) {
 						if (item.getType() == DownloadActivityType.NORMAL_FILE) {

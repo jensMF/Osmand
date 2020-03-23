@@ -1,11 +1,11 @@
 package net.osmand.plus.helpers;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -13,13 +13,21 @@ import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
 import android.text.style.ForegroundColorSpan;
+import android.util.TypedValue;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.FragmentManager;
 
 import net.osmand.AndroidUtils;
 import net.osmand.CallbackWithObject;
@@ -40,7 +48,9 @@ import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.SettingsHelper;
+import net.osmand.plus.SettingsHelper.SettingsCollectListener;
 import net.osmand.plus.SettingsHelper.SettingsImportListener;
+import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.ActivityResultListener;
 import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.activities.TrackActivity;
@@ -51,12 +61,12 @@ import net.osmand.plus.base.bottomsheetmenu.simpleitems.DividerHalfItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.ShortDescriptionItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleItem;
 import net.osmand.plus.rastermaps.OsmandRasterMapsPlugin;
+import net.osmand.plus.settings.ImportSettingsFragment;
 import net.osmand.plus.views.OsmandMapTileView;
 import net.osmand.router.RoutingConfiguration;
 import net.osmand.util.Algorithms;
 
 import org.apache.commons.logging.Log;
-import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -76,7 +86,7 @@ import java.util.zip.ZipInputStream;
 
 import static android.app.Activity.RESULT_OK;
 import static net.osmand.IndexConstants.OSMAND_SETTINGS_FILE_EXT;
-import static net.osmand.IndexConstants.ROUTING_FILE_EXT;
+import static net.osmand.IndexConstants.ROUTING_AND_RENDERING_FILE_EXT;
 import static net.osmand.plus.AppInitializer.loadRoutingFiles;
 import static net.osmand.plus.myplaces.FavoritesActivity.FAV_TAB;
 import static net.osmand.plus.myplaces.FavoritesActivity.GPX_TAB;
@@ -99,7 +109,7 @@ public class ImportHelper {
 	
 	public enum ImportType {
 		SETTINGS(IndexConstants.OSMAND_SETTINGS_FILE_EXT),
-		ROUTING(ROUTING_FILE_EXT);
+		ROUTING(ROUTING_AND_RENDERING_FILE_EXT);
 
 		ImportType(String extension) {
 			this.extension = extension;
@@ -184,8 +194,8 @@ public class ImportHelper {
 			handleSqliteTileImport(intentUri, fileName);
 		} else if (fileName != null && fileName.endsWith(OSMAND_SETTINGS_FILE_EXT)) {
 			handleOsmAndSettingsImport(intentUri, fileName, extras, null);
-		} else if (fileName != null && fileName.endsWith(ROUTING_FILE_EXT)) {
-			handleRoutingFileImport(intentUri, fileName, null);
+		} else if (fileName != null && fileName.endsWith(ROUTING_AND_RENDERING_FILE_EXT)) {
+			handleXmlFileImport(intentUri, fileName);
 		} else {
 			handleFavouritesImport(intentUri, fileName, saveFile, useImportDir, false);
 		}
@@ -243,7 +253,7 @@ public class ImportHelper {
 
 			@Override
 			protected void onPostExecute(GPXFile result) {
-				if (isActivityNotDestroyed(activity)) {
+				if (AndroidUtils.isActivityNotDestroyed(activity)) {
 					progress.dismiss();
 				}
 				handleResult(result, fileName, save, useImportDir, false);
@@ -315,7 +325,7 @@ public class ImportHelper {
 
 			@Override
 			protected void onPostExecute(final GPXFile result) {
-				if (isActivityNotDestroyed(activity)) {
+				if (AndroidUtils.isActivityNotDestroyed(activity)) {
 					progress.dismiss();
 				}
 
@@ -332,9 +342,10 @@ public class ImportHelper {
 
 				@Override
 				protected void onPreExecute() {
-					progress = ProgressDialog
-							.show(activity, app.getString(R.string.loading_smth, ""),
-									app.getString(R.string.loading_data));
+					if (AndroidUtils.isActivityNotDestroyed(activity)) {
+						progress = ProgressDialog.show(activity, app.getString(R.string.loading_smth, ""),
+										app.getString(R.string.loading_data));
+					}
 				}
 
 				@Override
@@ -353,7 +364,7 @@ public class ImportHelper {
 
 				@Override
 				protected void onPostExecute(GPXFile result) {
-					if (isActivityNotDestroyed(activity)) {
+					if (progress != null && AndroidUtils.isActivityNotDestroyed(activity)) {
 						progress.dismiss();
 					}
 					Toast.makeText(activity, R.string.fav_imported_sucessfully, Toast.LENGTH_LONG)
@@ -427,7 +438,7 @@ public class ImportHelper {
 
 			@Override
 			protected void onPostExecute(GPXFile result) {
-				if (isActivityNotDestroyed(activity)) {
+				if (AndroidUtils.isActivityNotDestroyed(activity)) {
 					progress.dismiss();
 				}
 				handleResult(result, name, save, useImportDir, false);
@@ -475,7 +486,7 @@ public class ImportHelper {
 
 			@Override
 			protected void onPostExecute(GPXFile result) {
-				if (isActivityNotDestroyed(activity)) {
+				if (AndroidUtils.isActivityNotDestroyed(activity)) {
 					progress.dismiss();
 				}
 				handleResult(result, name, save, useImportDir, false);
@@ -507,7 +518,7 @@ public class ImportHelper {
 
 			@Override
 			protected void onPostExecute(String message) {
-				if (isActivityNotDestroyed(activity)) {
+				if (AndroidUtils.isActivityNotDestroyed(activity)) {
 					progress.dismiss();
 				}
 				Toast.makeText(app, message, Toast.LENGTH_SHORT).show();
@@ -588,7 +599,7 @@ public class ImportHelper {
 
 			@Override
 			protected void onPostExecute(String error) {
-				if (isActivityNotDestroyed(activity)) {
+				if (AndroidUtils.isActivityNotDestroyed(activity)) {
 					progress.dismiss();
 				}
 				if (error == null) {
@@ -663,7 +674,7 @@ public class ImportHelper {
 	}
 
 	@SuppressLint("StaticFieldLeak")
-	private void handleRoutingFileImport(final Uri uri, final String fileName, final CallbackWithObject<String> callback) {
+	private void handleRoutingFileImport(final Uri uri, final String fileName, final CallbackWithObject<RoutingConfiguration.Builder> callback) {
 		final AsyncTask<Void, Void, String> routingImportTask = new AsyncTask<Void, Void, String>() {
 			
 			String mFileName;
@@ -671,7 +682,9 @@ public class ImportHelper {
 
 			@Override
 			protected void onPreExecute() {
-				progress = ProgressDialog.show(activity, app.getString(R.string.loading_smth, ""), app.getString(R.string.loading_data));
+				if (AndroidUtils.isActivityNotDestroyed(activity)) {
+					progress = ProgressDialog.show(activity, app.getString(R.string.loading_smth, ""), app.getString(R.string.loading_data));
+				}
 				mFileName = fileName;
 			}
 
@@ -697,14 +710,14 @@ public class ImportHelper {
 					loadRoutingFiles(app, new AppInitializer.LoadRoutingFilesCallback() {
 						@Override
 						public void onRoutingFilesLoaded() {
-							if (isActivityNotDestroyed(activity)) {
+							if (progress != null && AndroidUtils.isActivityNotDestroyed(activity)) {
 								progress.dismiss();
 							}
-							String profileKey = app.getRoutingConfig().getRoutingProfileKeyByFileName(mFileName);
-							if (profileKey != null) {
+							RoutingConfiguration.Builder builder = app.getCustomRoutingConfig(mFileName);
+							if (builder != null) {
 								app.showShortToastMessage(app.getString(R.string.file_imported_successfully, mFileName));
 								if (callback != null) {
-									callback.processResult(profileKey);
+									callback.processResult(builder);
 								}
 							} else {
 								app.showToastMessage(app.getString(R.string.file_does_not_contain_routing_rules, mFileName));
@@ -712,7 +725,7 @@ public class ImportHelper {
 						}
 					});
 				} else {
-					if (isActivityNotDestroyed(activity)) {
+					if (progress != null && AndroidUtils.isActivityNotDestroyed(activity)) {
 						progress.dismiss();
 					}
 					app.showShortToastMessage(app.getString(R.string.file_import_error, mFileName, error));
@@ -734,9 +747,8 @@ public class ImportHelper {
 			routingImportTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 		}
 	}
-	
-	private void handleOsmAndSettingsImport(Uri intentUri, String fileName, Bundle extras, 
-	                                        CallbackWithObject<List<SettingsHelper.SettingsItem>> callback) {
+
+	private void handleOsmAndSettingsImport(Uri intentUri, String fileName, Bundle extras, CallbackWithObject<List<SettingsHelper.SettingsItem>> callback) {
 		if (extras != null && extras.containsKey(SettingsHelper.SETTINGS_VERSION_KEY) && extras.containsKey(SettingsHelper.SETTINGS_LATEST_CHANGES_KEY)) {
 			int version = extras.getInt(SettingsHelper.SETTINGS_VERSION_KEY, -1);
 			String latestChanges = extras.getString(SettingsHelper.SETTINGS_LATEST_CHANGES_KEY);
@@ -747,7 +759,7 @@ public class ImportHelper {
 	}
 
 	@SuppressLint("StaticFieldLeak")
-	private void handleOsmAndSettingsImport(final Uri uri, final String name, final String latestChanges, final int version, 
+	private void handleOsmAndSettingsImport(final Uri uri, final String name, final String latestChanges, final int version,
 	                                        final CallbackWithObject<List<SettingsHelper.SettingsItem>> callback) {
 		final AsyncTask<Void, Void, String> settingsImportTask = new AsyncTask<Void, Void, String>() {
 
@@ -755,7 +767,9 @@ public class ImportHelper {
 
 			@Override
 			protected void onPreExecute() {
-				progress = ProgressDialog.show(activity, app.getString(R.string.loading_smth, ""), app.getString(R.string.loading_data));
+				if (AndroidUtils.isActivityNotDestroyed(activity)) {
+					progress = ProgressDialog.show(activity, app.getString(R.string.loading_smth, ""), app.getString(R.string.loading_data));
+				}
 			}
 
 			@Override
@@ -771,26 +785,23 @@ public class ImportHelper {
 			@Override
 			protected void onPostExecute(String error) {
 				File tempDir = app.getAppPath(IndexConstants.TEMP_DIR);
-				File file = new File(tempDir, name);
+				final File file = new File(tempDir, name);
 				if (error == null && file.exists()) {
-					app.getSettingsHelper().importSettings(file, latestChanges, version, new SettingsImportListener() {
+					app.getSettingsHelper().collectSettings(file, latestChanges, version, new SettingsCollectListener() {
 						@Override
-						public void onSettingsImportFinished(boolean succeed, boolean empty, @NonNull List<SettingsHelper.SettingsItem> items) {
-							if (isActivityNotDestroyed(activity)) {
+						public void onSettingsCollectFinished(boolean succeed, boolean empty, @NonNull List<SettingsHelper.SettingsItem> items) {
+							if (progress != null && AndroidUtils.isActivityNotDestroyed(activity)) {
 								progress.dismiss();
 							}
 							if (succeed) {
-								app.showShortToastMessage(app.getString(R.string.file_imported_successfully, name));
-								if (callback != null) {
-									callback.processResult(items);
-								}
-							} else if (!empty) {
+								ImportSettingsFragment.showInstance(activity.getSupportFragmentManager(), items, file);
+							} else if (empty) {
 								app.showShortToastMessage(app.getString(R.string.file_import_error, name, app.getString(R.string.shared_string_unexpected_error)));
 							}
 						}
 					});
 				} else {
-					if (isActivityNotDestroyed(activity)) {
+					if (progress != null && AndroidUtils.isActivityNotDestroyed(activity)) {
 						progress.dismiss();
 					}
 					app.showShortToastMessage(app.getString(R.string.file_import_error, name, error));
@@ -813,11 +824,123 @@ public class ImportHelper {
 		}
 	}
 
-	private boolean isActivityNotDestroyed(Activity activity) {
-		if (Build.VERSION.SDK_INT >= 17) {
-			return !activity.isFinishing() && !activity.isDestroyed();
+	private void handleXmlFileImport(final Uri intentUri, final String fileName) {
+		AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+
+		final boolean nightMode;
+		if (activity instanceof MapActivity) {
+			nightMode = app.getDaynightHelper().isNightModeForMapControls();
+		} else {
+			nightMode = !app.getSettings().isLightContent();
 		}
-		return !activity.isFinishing();
+		final LayoutInflater themedInflater = UiUtilities.getInflater(activity, nightMode);
+
+		View dialogTitle = themedInflater.inflate(R.layout.bottom_sheet_item_simple, null);
+		dialogTitle.findViewById(R.id.icon).setVisibility(View.GONE);
+		TextView tvTitle = dialogTitle.findViewById(R.id.title);
+		tvTitle.setText(R.string.import_from_file);
+		int textSize = (int) app.getResources().getDimension(R.dimen.dialog_header_text_size);
+		tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
+		builder.setCustomTitle(dialogTitle);
+
+		String[] strings = new String[2];
+		strings[0] = app.getString(R.string.import_routing_file);
+		strings[1] = app.getString(R.string.import_rendering_file);
+
+		final int[] icons = new int[2];
+		icons[0] = R.drawable.ic_action_gdirections_dark;
+		icons[1] = R.drawable.ic_map;
+
+		ArrayAdapter<String> singleChoiceAdapter = new ArrayAdapter<String>(activity, R.layout.bottom_sheet_item_simple, R.id.title, strings) {
+			@NonNull
+			@Override
+			public View getView(int position, View convertView, @NonNull ViewGroup parent) {
+				View v = convertView;
+				if (v == null) {
+					v = themedInflater.inflate(R.layout.bottom_sheet_item_simple, parent, false);
+				}
+				int activeColor = nightMode ? R.color.active_color_primary_dark : R.color.active_color_primary_light;
+				Drawable icon = app.getUIUtilities().getIcon(icons[position], activeColor);
+				((TextView) v.findViewById(R.id.title)).setText(getItem(position));
+				((ImageView) v.findViewById(R.id.icon)).setImageDrawable(icon);
+				return v;
+			}
+		};
+
+		builder.setAdapter(singleChoiceAdapter, new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				if (which == 0) {
+					handleRoutingFileImport(intentUri, fileName, null);
+				} else {
+					handleRenderingFileImport(intentUri, fileName);
+				}
+			}
+		});
+
+		builder.setNegativeButton(R.string.shared_string_cancel, null);
+		AlertDialog dialog = builder.create();
+		dialog.getListView().setDividerHeight(0);
+		dialog.show();
+	}
+
+	@SuppressLint("StaticFieldLeak")
+	private void handleRenderingFileImport(final Uri intentUri, final String fileName) {
+		final AsyncTask<Void, Void, String> renderingImportTask = new AsyncTask<Void, Void, String>() {
+
+			String mFileName;
+			ProgressDialog progress;
+
+			@Override
+			protected void onPreExecute() {
+				if (AndroidUtils.isActivityNotDestroyed(activity)) {
+					progress = ProgressDialog.show(activity, app.getString(R.string.loading_smth, ""), app.getString(R.string.loading_data));
+				}
+				mFileName = fileName;
+			}
+
+			@Override
+			protected String doInBackground(Void... voids) {
+				File renderingDir = app.getAppPath(IndexConstants.RENDERERS_DIR);
+				if (!renderingDir.exists()) {
+					renderingDir.mkdirs();
+				}
+				File dest = new File(renderingDir, mFileName);
+				while (dest.exists()) {
+					mFileName = AndroidUtils.createNewFileName(mFileName);
+					dest = new File(renderingDir, mFileName);
+				}
+				return copyFile(app, dest, intentUri, true);
+			}
+
+			@Override
+			protected void onPostExecute(String error) {
+				File renderingDir = app.getAppPath(IndexConstants.RENDERERS_DIR);
+				File file = new File(renderingDir, mFileName);
+				if (error == null && file.exists()) {
+					app.getRendererRegistry().updateExternalRenderers();
+				} else {
+					app.showShortToastMessage(app.getString(R.string.file_import_error, mFileName, error));
+				}
+				if (progress != null && AndroidUtils.isActivityNotDestroyed(activity)) {
+					progress.dismiss();
+				}
+			}
+		};
+		if (app.isApplicationInitializing()) {
+			app.getAppInitializer().addListener(new AppInitializer.AppInitializeListener() {
+				@Override
+				public void onProgress(AppInitializer init, AppInitializer.InitEvents event) {
+				}
+
+				@Override
+				public void onFinish(AppInitializer init) {
+					renderingImportTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+				}
+			});
+		} else {
+			renderingImportTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+		}
 	}
 
 	private void handleResult(final GPXFile result, final String name, final boolean save,
@@ -1069,6 +1192,7 @@ public class ImportHelper {
 					fp.setDescription(p.desc);
 				}
 				fp.setColor(p.getColor(0));
+				fp.setIconIdFromName(app, p.getIconName());
 				favourites.add(fp);
 			}
 		}

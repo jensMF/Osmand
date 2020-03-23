@@ -2,20 +2,26 @@ package net.osmand.plus.settings.bottomsheets;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+
+import net.osmand.AndroidUtils;
 import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.R;
+import net.osmand.plus.UiUtilities;
 import net.osmand.plus.base.bottomsheetmenu.SimpleBottomSheetItem;
-import net.osmand.plus.base.bottomsheetmenu.simpleitems.LongDescriptionItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleItem;
 import net.osmand.plus.settings.OnPreferenceChanged;
 import net.osmand.plus.settings.preferences.EditTextPreferenceEx;
 import net.osmand.util.Algorithms;
+
+import studio.carbonylgroup.textfieldboxes.TextFieldBoxes;
 
 public class EditTextPreferenceBottomSheet extends BasePreferenceBottomSheet {
 
@@ -41,13 +47,22 @@ public class EditTextPreferenceBottomSheet extends BasePreferenceBottomSheet {
 			text = editTextPreference.getText();
 		}
 
-		editText = new EditText(ctx);
+		View view = UiUtilities.getInflater(ctx, nightMode).inflate(R.layout.preference_edit_text_box, null);
+		editText = view.findViewById(R.id.edit_text);
 		editText.setText(text);
-		items.add(new SimpleBottomSheetItem.Builder().setCustomView(editText).create());
+
+		ViewGroup editTextLayout = view.findViewById(R.id.text_field_boxes_editTextLayout);
+		if (editTextLayout != null && editTextLayout.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+			ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) editTextLayout.getLayoutParams();
+			params.setMargins(params.leftMargin, AndroidUtils.dpToPx(ctx, 9), params.rightMargin, params.bottomMargin);
+		}
+
+		items.add(new SimpleBottomSheetItem.Builder().setCustomView(view).create());
 
 		String description = editTextPreference.getDescription();
 		if (!Algorithms.isEmpty(description)) {
-			items.add(new LongDescriptionItem(description));
+			TextFieldBoxes textFieldBoxes = view.findViewById(R.id.text_field_box);
+			textFieldBoxes.setHelperText(description);
 		}
 	}
 
@@ -59,7 +74,7 @@ public class EditTextPreferenceBottomSheet extends BasePreferenceBottomSheet {
 
 	@Override
 	protected int getDismissButtonTextId() {
-		return R.string.shared_string_close;
+		return R.string.shared_string_cancel;
 	}
 
 	@Override

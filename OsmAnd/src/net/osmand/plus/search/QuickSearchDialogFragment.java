@@ -5,20 +5,9 @@ import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Resources;
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.design.widget.TabLayout;
-import android.support.v4.app.DialogFragment;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.view.ViewPager;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.widget.Toolbar;
 import android.text.Editable;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -43,7 +32,25 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentPagerAdapter;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.viewpager.widget.ViewPager;
+
+import com.google.android.material.tabs.TabLayout;
+
 import net.osmand.AndroidUtils;
+import net.osmand.CallbackWithObject;
+import net.osmand.GPXUtilities;
+import net.osmand.GPXUtilities.GPXFile;
+import net.osmand.GPXUtilities.WptPt;
 import net.osmand.Location;
 import net.osmand.PlatformUtil;
 import net.osmand.ResultMatcher;
@@ -60,9 +67,6 @@ import net.osmand.osm.PoiType;
 import net.osmand.plus.AppInitializer;
 import net.osmand.plus.AppInitializer.AppInitializeListener;
 import net.osmand.plus.FavouritesDbHelper;
-import net.osmand.GPXUtilities;
-import net.osmand.GPXUtilities.GPXFile;
-import net.osmand.GPXUtilities.WptPt;
 import net.osmand.plus.LockableViewPager;
 import net.osmand.plus.OsmAndFormatter;
 import net.osmand.plus.OsmAndLocationProvider.OsmAndCompassListener;
@@ -76,6 +80,7 @@ import net.osmand.plus.activities.MapActivity.ShowQuickSearchMode;
 import net.osmand.plus.helpers.SearchHistoryHelper;
 import net.osmand.plus.helpers.SearchHistoryHelper.HistoryEntry;
 import net.osmand.plus.poi.PoiUIFilter;
+import net.osmand.plus.poi.RearrangePoiFiltersFragment;
 import net.osmand.plus.resources.RegionAddressRepository;
 import net.osmand.plus.search.QuickSearchHelper.SearchHistoryAPI;
 import net.osmand.plus.search.listitems.QuickSearchButtonListItem;
@@ -99,7 +104,6 @@ import net.osmand.util.MapUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -448,7 +452,8 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 		if (!app.getSettings().isLightContent()) {
 			toolbar.setBackgroundColor(ContextCompat.getColor(mapActivity, R.color.app_bar_color_dark));
 		}
-		toolbar.setNavigationIcon(app.getUIUtilities().getThemedIcon(R.drawable.ic_arrow_back));
+		Drawable icBack = app.getUIUtilities().getThemedIcon(AndroidUtils.getNavigationIconResId(app));
+		toolbar.setNavigationIcon(icBack);
 		toolbar.setNavigationContentDescription(R.string.access_shared_string_navigate_up);
 		toolbar.setNavigationOnClickListener(
 				new OnClickListener() {
@@ -740,8 +745,9 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 					nFilter.setSavedFilterByName(filter.getFilterByName());
 				}
 				if (app.getPoiFilters().createPoiFilter(nFilter, false)) {
-					Toast.makeText(getContext(), MessageFormat.format(getContext().getText(R.string.edit_filter_create_message).toString(),
-							editText.getText().toString()), Toast.LENGTH_SHORT).show();
+					Toast.makeText(getContext(),
+							getContext().getString(R.string.edit_filter_create_message, editText.getText().toString()),
+							Toast.LENGTH_SHORT).show();
 					app.getSearchUICore().refreshCustomPoiFilters();
 					replaceQueryWithUiFilter(nFilter, "");
 					reloadCategories();
@@ -1017,7 +1023,10 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 			hideToolbar();
 			mapActivity.updateStatusBarColor();
 			mapActivity.refreshMap();
-			getChildFragmentManager().popBackStack();
+			FragmentManager fragmentManager = getChildFragmentManager();
+			if (!fragmentManager.isStateSaved()) {
+				fragmentManager.popBackStack();
+			}
 		}
 		super.onDismiss(dialog);
 	}
@@ -1222,6 +1231,23 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 						filter.clearFilter();
 						QuickSearchCustomPoiFragment.showDialog(
 								QuickSearchDialogFragment.this, filter.getFilterId());
+					}
+				}));
+				rows.add(new QuickSearchButtonListItem(app, R.drawable.ic_action_item_move,
+						app.getString(R.string.rearrange_categories), new OnClickListener() {
+					@Override
+					public void onClick(View v) {
+						RearrangePoiFiltersFragment.showInstance(QuickSearchDialogFragment.this, false, new CallbackWithObject<Boolean>() {
+
+							@Override
+							public boolean processResult(Boolean changed) {
+								if (changed) {
+									searchHelper.refreshFilterOrders();
+									reloadCategoriesInternal();
+								}
+								return false;
+							}
+						});
 					}
 				}));
 				if (categoriesSearchFragment != null) {

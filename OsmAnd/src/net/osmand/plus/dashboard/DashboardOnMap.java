@@ -10,13 +10,6 @@ import android.content.Intent;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
-import android.support.annotation.ColorRes;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.view.ViewCompat;
-import android.support.v7.widget.Toolbar;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
@@ -37,6 +30,14 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
+
+import androidx.annotation.ColorRes;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.github.ksoichiro.android.observablescrollview.ObservableListView;
 import com.github.ksoichiro.android.observablescrollview.ObservableScrollView;
@@ -82,7 +83,6 @@ import net.osmand.plus.srtmplugin.SRTMPlugin;
 import net.osmand.plus.views.DownloadedRegionsLayer;
 import net.osmand.plus.views.MapInfoLayer;
 import net.osmand.plus.views.OsmandMapTileView;
-import net.osmand.plus.views.controls.DynamicListView;
 import net.osmand.plus.views.mapwidgets.MapWidgetRegistry;
 
 import java.lang.ref.WeakReference;
@@ -224,6 +224,7 @@ public class DashboardOnMap implements ObservableScrollViewCallbacks, IRouteInfo
 			@Override
 			public void onClick(View v) {
 				hideDashboard();
+				mapActivity.dismissSettingsScreens();
 			}
 		};
 		toolbar = ((Toolbar) dashboardView.findViewById(R.id.toolbar));
@@ -335,8 +336,8 @@ public class DashboardOnMap implements ObservableScrollViewCallbacks, IRouteInfo
 		ImageView lst = (ImageView) dashboardView.findViewById(R.id.toolbar_list);
 		lst.setVisibility(View.GONE);
 		ImageView back = (ImageView) dashboardView.findViewById(R.id.toolbar_back);
-		back.setImageDrawable(
-				getMyApplication().getUIUtilities().getIcon(R.drawable.ic_arrow_back));
+		Drawable icBack = getMyApplication().getUIUtilities().getIcon(AndroidUtils.getNavigationIconResId(mapActivity));
+		back.setImageDrawable(icBack);
 		back.setOnClickListener(new View.OnClickListener() {
 
 			@Override
@@ -1056,6 +1057,7 @@ public class DashboardOnMap implements ObservableScrollViewCallbacks, IRouteInfo
 			setDashboardVisibility(true, previousVisibleType);
 		} else {
 			hideDashboard();
+			mapActivity.backToConfigureProfileFragment();
 		}
 	}
 

@@ -243,7 +243,7 @@
     <string name="min_logging_speed">Minimalna szybkość rejestrowania</string>
     <string name="min_logging_speed_descr">Filtr: brak rejestrowania poniżej wybranej prędkości</string>
     <string name="gpx_settings">Ustawienia GPX</string>
-    <string name="timeline_no_data_descr">Nie zgromadziliśmy danych dla wybranego dnia</string>
+    <string name="timeline_no_data_descr">Nie zebraliśmy danych dla wybranego dnia</string>
     <string name="timeline_no_data">Brak danych</string>
     <string name="shared_string_end">Koniec</string>
     <string name="shared_string_apply">Zastosuj</string>
@@ -255,12 +255,18 @@
     <string name="units_and_formats">Jednostki i formaty</string>
     <string name="unit_of_length_descr">Zmienia jednostki długości.</string>
     <string name="unit_of_length">Jednostki długości</string>
-    <string name="unit_of_speed_system_descr">Zdefiniuj jednostkę prędkości.</string>
+    <string name="unit_of_speed_system_descr">Określ jednostkę prędkości.</string>
     <string name="unit_of_speed_system">Jednostka prędkości</string>
     <string name="buffer_time_descr">Maksymalny czas przechowywania punktów w buforze</string>
     <string name="buffer_time">Czas ważności bufora</string>
-    <string name="time_zone_descr">Wybierz strefę czasową, która ma być wyświetlana w wiadomościach o Twojej lokalizacji.</string>
-    <string name="shared_string_suggested">Proponowane</string>
-    <string name="status_widget_title">Stan modułu śledzącego OsmAnd</string>
+    <string name="time_zone_descr">Wybierz strefę czasową, która ma być wyświetlana w Twoich wiadomościach o lokalizacji.</string>
+    <string name="shared_string_suggested">Sugerowane</string>
+    <string name="status_widget_title">Stan nadajnika OsmAnd</string>
     <string name="back_to_osmand">Wróć do OsmAnd</string>
+    <string name="last_update_from_telegram_date">Ostatnia aktualizacja z Telegramu: %1$s</string>
+    <string name="last_update_from_telegram_duration">Ostatnia aktualizacja z Telegramu: %1$s temu</string>
+    <string name="duration_ago">%1$s temu</string>
+    <string name="shared_string_error_short">ERR</string>
+    <string name="last_response_date">Ostatnia odpowiedź: %1$s</string>
+    <string name="last_response_duration">Ostatnia odpowiedź: %1$s temu</string>
 </resources>

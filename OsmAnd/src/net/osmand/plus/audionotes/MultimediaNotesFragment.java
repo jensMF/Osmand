@@ -1,29 +1,50 @@
 package net.osmand.plus.audionotes;
 
+import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.hardware.Camera;
 import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.StatFs;
-import android.support.v7.preference.Preference;
+import android.text.SpannableString;
+import android.view.View;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.FragmentManager;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceViewHolder;
 
 import net.osmand.AndroidUtils;
 import net.osmand.PlatformUtil;
+import net.osmand.plus.ApplicationMode;
 import net.osmand.plus.OsmAndAppCustomization;
 import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.R;
+import net.osmand.plus.UiUtilities;
+import net.osmand.plus.activities.MapActivity;
+import net.osmand.plus.helpers.FontCache;
+import net.osmand.plus.profiles.SelectCopyAppModeBottomSheet;
+import net.osmand.plus.profiles.SelectCopyAppModeBottomSheet.CopyAppModePrefsListener;
 import net.osmand.plus.settings.BaseSettingsFragment;
+import net.osmand.plus.settings.bottomsheets.ResetProfilePrefsBottomSheet;
+import net.osmand.plus.settings.bottomsheets.ResetProfilePrefsBottomSheet.ResetAppModePrefsListener;
 import net.osmand.plus.settings.preferences.ListPreferenceEx;
 import net.osmand.plus.settings.preferences.SwitchPreferenceEx;
+import net.osmand.plus.widgets.style.CustomTypefaceSpan;
 
 import org.apache.commons.logging.Log;
 
 import java.io.File;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import static net.osmand.plus.audionotes.AudioVideoNotesPlugin.AUDIO_BITRATE_DEFAULT;
 import static net.osmand.plus.audionotes.AudioVideoNotesPlugin.AV_CAMERA_FOCUS_AUTO;
@@ -34,11 +55,16 @@ import static net.osmand.plus.audionotes.AudioVideoNotesPlugin.AV_CAMERA_FOCUS_I
 import static net.osmand.plus.audionotes.AudioVideoNotesPlugin.AV_CAMERA_FOCUS_MACRO;
 import static net.osmand.plus.audionotes.AudioVideoNotesPlugin.NOTES_TAB;
 import static net.osmand.plus.audionotes.AudioVideoNotesPlugin.cameraPictureSizeDefault;
+import static net.osmand.plus.myplaces.FavoritesActivity.TAB_ID;
 
-public class MultimediaNotesFragment extends BaseSettingsFragment {
+public class MultimediaNotesFragment extends BaseSettingsFragment implements CopyAppModePrefsListener, ResetAppModePrefsListener {
+
+	public static final int CAMERA_FOR_PHOTO_PARAMS_REQUEST_CODE = 104;
 
 	private static final Log log = PlatformUtil.getLog(MultimediaNotesFragment.class);
 
+	private static final String OPEN_NOTES_DESCRIPTION = "open_notes_description";
+	private static final String CAMERA_PERMISSION = "camera_permission";
 	private static final String COPY_PLUGIN_SETTINGS = "copy_plugin_settings";
 	private static final String RESET_TO_DEFAULT = "reset_to_default";
 	private static final String OPEN_NOTES = "open_notes";
@@ -46,17 +72,8 @@ public class MultimediaNotesFragment extends BaseSettingsFragment {
 	@Override
 	protected void setupPreferences() {
 		AudioVideoNotesPlugin plugin = OsmandPlugin.getPlugin(AudioVideoNotesPlugin.class);
-
 		if (plugin != null) {
-
-			Camera cam = openCamera();
-			if (cam != null) {
-				setupExternalPhotoCamPref(plugin);
-				setupCameraPictureSizePref(cam, plugin);
-				setupCameraFocusTypePref(cam, plugin);
-				setupPhotoPlaySoundPref(plugin);
-				cam.release();
-			}
+			setupCameraPhotoPrefs(plugin);
 
 			setupAudioFormatPref(plugin);
 			setupAudioBitratePref(plugin);
@@ -76,13 +93,44 @@ public class MultimediaNotesFragment extends BaseSettingsFragment {
 		}
 	}
 
-	private void setupExternalPhotoCamPref(AudioVideoNotesPlugin plugin) {
+	private void setupCameraPhotoPrefs(AudioVideoNotesPlugin plugin) {
+		Camera cam = openCamera();
+		setupCameraPermissionPref(cam);
+		setupExternalPhotoCamPref(cam, plugin);
+		setupCameraPictureSizePref(cam, plugin);
+		setupCameraFocusTypePref(cam, plugin);
+		setupPhotoPlaySoundPref(cam, plugin);
+		if (cam != null) {
+			cam.release();
+		}
+	}
+
+	private void setupCameraPermissionPref(Camera cam) {
+		Context ctx = getContext();
+		if (ctx == null) {
+			return;
+		}
+		Preference cameraPermission = findPreference(CAMERA_PERMISSION);
+		boolean permissionGranted = ActivityCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+		cameraPermission.setVisible(cam == null && !permissionGranted);
+	}
+
+	private void setupExternalPhotoCamPref(Camera cam, AudioVideoNotesPlugin plugin) {
 		SwitchPreferenceEx externalPhotoCam = (SwitchPreferenceEx) findPreference(plugin.AV_EXTERNAL_PHOTO_CAM.getId());
 		externalPhotoCam.setDescription(getString(R.string.av_use_external_camera_descr));
-		externalPhotoCam.setIcon(getActiveIcon(R.drawable.ic_action_photo_dark));
+		externalPhotoCam.setIcon(getPersistentPrefIcon(R.drawable.ic_action_photo_dark));
+		externalPhotoCam.setEnabled(cam != null);
 	}
 
 	private void setupCameraPictureSizePref(Camera cam, AudioVideoNotesPlugin plugin) {
+		ListPreferenceEx cameraPictureSize = (ListPreferenceEx) findPreference(plugin.AV_CAMERA_PICTURE_SIZE.getId());
+		cameraPictureSize.setDescription(R.string.av_camera_pic_size_descr);
+		cameraPictureSize.setIcon(getPersistentPrefIcon(R.drawable.ic_action_picture_size));
+
+		if (cam == null) {
+			cameraPictureSize.setEnabled(false);
+			return;
+		}
 		Camera.Parameters parameters = cam.getParameters();
 
 		// Photo picture size
@@ -138,18 +186,24 @@ public class MultimediaNotesFragment extends BaseSettingsFragment {
 		String[] entries = itemsPicSizes.toArray(new String[0]);
 		Integer[] entryValues = picSizesValues.toArray(new Integer[0]);
 
-		ListPreferenceEx cameraPictureSize = (ListPreferenceEx) findPreference(plugin.AV_CAMERA_PICTURE_SIZE.getId());
 		if (entries.length > 0) {
 			cameraPictureSize.setEntries(entries);
 			cameraPictureSize.setEntryValues(entryValues);
-			cameraPictureSize.setDescription(R.string.av_camera_pic_size_descr);
-			cameraPictureSize.setIcon(getActiveIcon(R.drawable.ic_action_picture_size));
 		} else {
 			cameraPictureSize.setVisible(false);
 		}
 	}
 
 	private void setupCameraFocusTypePref(Camera cam, AudioVideoNotesPlugin plugin) {
+		ListPreferenceEx cameraFocusType = (ListPreferenceEx) findPreference(plugin.AV_CAMERA_FOCUS_TYPE.getId());
+		cameraFocusType.setDescription(R.string.av_camera_focus_descr);
+		cameraFocusType.setIcon(getPersistentPrefIcon(R.drawable.ic_action_camera_focus));
+
+		if (cam == null) {
+			cameraFocusType.setEnabled(false);
+			return;
+		}
+
 		Camera.Parameters parameters = cam.getParameters();
 
 		// focus mode settings
@@ -183,21 +237,23 @@ public class MultimediaNotesFragment extends BaseSettingsFragment {
 		String[] entries = items.toArray(new String[0]);
 		Integer[] entryValues = itemsValues.toArray(new Integer[0]);
 
-		ListPreferenceEx cameraFocusType = (ListPreferenceEx) findPreference(plugin.AV_CAMERA_FOCUS_TYPE.getId());
 		if (entries.length > 0) {
 			cameraFocusType.setEntries(entries);
 			cameraFocusType.setEntryValues(entryValues);
-			cameraFocusType.setDescription(R.string.av_camera_focus_descr);
-			cameraFocusType.setIcon(getActiveIcon(R.drawable.ic_action_camera_focus));
 		} else {
 			cameraFocusType.setVisible(false);
 		}
 	}
 
-	private void setupPhotoPlaySoundPref(AudioVideoNotesPlugin plugin) {
+	private void setupPhotoPlaySoundPref(Camera cam, AudioVideoNotesPlugin plugin) {
+		Drawable disabled = getContentIcon(R.drawable.ic_action_music_off);
+		Drawable enabled = getActiveIcon(R.drawable.ic_type_audio);
+		Drawable icon = getPersistentPrefIcon(enabled, disabled);
+
 		SwitchPreferenceEx photoPlaySound = (SwitchPreferenceEx) findPreference(plugin.AV_PHOTO_PLAY_SOUND.getId());
 		photoPlaySound.setDescription(getString(R.string.av_photo_play_sound_descr));
-		photoPlaySound.setIcon(getContentIcon(R.drawable.ic_action_music_off));
+		photoPlaySound.setIcon(icon);
+		photoPlaySound.setEnabled(cam != null);
 	}
 
 	private void setupAudioFormatPref(AudioVideoNotesPlugin plugin) {
@@ -223,7 +279,7 @@ public class MultimediaNotesFragment extends BaseSettingsFragment {
 	private void setupExternalRecorderPref(AudioVideoNotesPlugin plugin) {
 		SwitchPreferenceEx externalRecorder = (SwitchPreferenceEx) findPreference(plugin.AV_EXTERNAL_RECORDER.getId());
 		externalRecorder.setDescription(getString(R.string.av_use_external_recorder_descr));
-		externalRecorder.setIcon(getContentIcon(R.drawable.ic_action_video_dark));
+		externalRecorder.setIcon(getPersistentPrefIcon(R.drawable.ic_action_video_dark));
 	}
 
 	private void setupVideoQualityPref(AudioVideoNotesPlugin plugin) {
@@ -261,7 +317,7 @@ public class MultimediaNotesFragment extends BaseSettingsFragment {
 		videoQuality.setEntries(entries);
 		videoQuality.setEntryValues(entryValues);
 		videoQuality.setDescription(R.string.av_video_quality_descr);
-		videoQuality.setIcon(getContentIcon(R.drawable.ic_action_picture_size));
+		videoQuality.setIcon(getActiveIcon(R.drawable.ic_action_picture_size));
 	}
 
 	private void setupRecorderSplitPref(AudioVideoNotesPlugin plugin) {
@@ -319,14 +375,29 @@ public class MultimediaNotesFragment extends BaseSettingsFragment {
 			storageSize.setEntries(entries);
 			storageSize.setEntryValues(entryValues);
 			storageSize.setDescription(R.string.rec_split_storage_size_desc);
+			storageSize.setIcon(getActiveIcon(R.drawable.ic_sdcard));
 		} else {
 			storageSize.setVisible(false);
 		}
 	}
 
 	private void setupOpenNotesDescrPref() {
-		Preference nameAndPasswordPref = findPreference("open_notes_description");
-		nameAndPasswordPref.setTitle(getText(R.string.multimedia_notes_view_descr));
+		String menu = getString(R.string.shared_string_menu);
+		String myPlaces = getString(R.string.shared_string_my_places);
+		String notes = getString(R.string.notes);
+		String multimediaNotesPath = getString(R.string.ltr_or_rtl_triple_combine_via_dash, menu, myPlaces, notes);
+		String multimediaNotesPathDescr = getString(R.string.multimedia_notes_view_descr, multimediaNotesPath);
+
+		Preference osmEditsDescription = findPreference(OPEN_NOTES_DESCRIPTION);
+		int startIndex = multimediaNotesPathDescr.indexOf(multimediaNotesPath);
+		if (startIndex != -1) {
+			SpannableString titleSpan = new SpannableString(multimediaNotesPathDescr);
+			Typeface typeface = FontCache.getRobotoMedium(getContext());
+			titleSpan.setSpan(new CustomTypefaceSpan(typeface), startIndex, startIndex + multimediaNotesPath.length(), 0);
+			osmEditsDescription.setTitle(titleSpan);
+		} else {
+			osmEditsDescription.setTitle(multimediaNotesPathDescr);
+		}
 	}
 
 	private void setupOpenNotesPref() {
@@ -346,13 +417,29 @@ public class MultimediaNotesFragment extends BaseSettingsFragment {
 
 	@Override
 	public boolean onPreferenceClick(Preference preference) {
-		if (OPEN_NOTES.equals(preference.getKey())) {
+		String prefId = preference.getKey();
+		if (OPEN_NOTES.equals(prefId)) {
+			Bundle bundle = new Bundle();
+			bundle.putInt(TAB_ID, NOTES_TAB);
+
 			OsmAndAppCustomization appCustomization = app.getAppCustomization();
 			Intent favorites = new Intent(preference.getContext(), appCustomization.getFavoritesActivity());
 			favorites.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-			app.getSettings().FAVORITES_TAB.set(NOTES_TAB);
+			favorites.putExtra(MapActivity.INTENT_PARAMS, bundle);
 			startActivity(favorites);
 			return true;
+		} else if (COPY_PLUGIN_SETTINGS.equals(prefId)) {
+			FragmentManager fragmentManager = getFragmentManager();
+			if (fragmentManager != null) {
+				SelectCopyAppModeBottomSheet.showInstance(fragmentManager, this, false, getSelectedAppMode());
+			}
+		} else if (RESET_TO_DEFAULT.equals(prefId)) {
+			FragmentManager fragmentManager = getFragmentManager();
+			if (fragmentManager != null) {
+				ResetProfilePrefsBottomSheet.showInstance(fragmentManager, prefId, this, false, getSelectedAppMode());
+			}
+		} else if (CAMERA_PERMISSION.equals(prefId)) {
+			requestPermissions(new String[] {Manifest.permission.CAMERA}, CAMERA_FOR_PHOTO_PARAMS_REQUEST_CODE);
 		}
 		return super.onPreferenceClick(preference);
 	}
@@ -363,6 +450,64 @@ public class MultimediaNotesFragment extends BaseSettingsFragment {
 		} catch (Exception e) {
 			log.error("Error open camera", e);
 			return null;
+		}
+	}
+
+	@Override
+	protected void onBindPreferenceViewHolder(Preference preference, PreferenceViewHolder holder) {
+		super.onBindPreferenceViewHolder(preference, holder);
+		String prefId = preference.getKey();
+		if (CAMERA_PERMISSION.equals(prefId)) {
+			View selectableView = holder.itemView.findViewById(R.id.selectable_list_item);
+			if (selectableView != null) {
+				int color = AndroidUtils.getColorFromAttr(app, R.attr.activity_background_color);
+				int selectedColor = UiUtilities.getColorWithAlpha(getActiveProfileColor(), 0.3f);
+
+				if (Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP) {
+					Drawable bgDrawable = getPaintedIcon(R.drawable.rectangle_rounded, color);
+					Drawable selectable = getPaintedIcon(R.drawable.ripple_rectangle_rounded, selectedColor);
+					Drawable[] layers = {bgDrawable, selectable};
+					AndroidUtils.setBackground(selectableView, new LayerDrawable(layers));
+				} else {
+					Drawable bgDrawable = getPaintedIcon(R.drawable.rectangle_rounded, color);
+					AndroidUtils.setBackground(selectableView, bgDrawable);
+				}
+			}
+		} else if (OPEN_NOTES_DESCRIPTION.equals(prefId)) {
+			int minHeight = getResources().getDimensionPixelSize(R.dimen.bottom_sheet_list_item_height);
+			holder.itemView.setMinimumHeight(minHeight);
+		}
+	}
+
+	@Override
+	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+		super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+		if (requestCode == CAMERA_FOR_PHOTO_PARAMS_REQUEST_CODE && grantResults.length > 0
+				&& permissions.length > 0 && Manifest.permission.CAMERA.equals(permissions[0])) {
+			if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+				updateAllSettings();
+			} else {
+				app.showToastMessage(R.string.no_camera_permission);
+			}
+		}
+	}
+
+	@Override
+	public void copyAppModePrefs(ApplicationMode appMode) {
+		AudioVideoNotesPlugin plugin = OsmandPlugin.getPlugin(AudioVideoNotesPlugin.class);
+		if (plugin != null) {
+			app.getSettings().copyProfilePreferences(appMode, getSelectedAppMode(), plugin.getPreferences());
+			updateAllSettings();
+		}
+	}
+
+	@Override
+	public void resetAppModePrefs(ApplicationMode appMode) {
+		AudioVideoNotesPlugin plugin = OsmandPlugin.getPlugin(AudioVideoNotesPlugin.class);
+		if (plugin != null) {
+			app.getSettings().resetProfilePreferences(appMode, plugin.getPreferences());
+			app.showToastMessage(R.string.plugin_prefs_reset_successful);
+			updateAllSettings();
 		}
 	}
 }

@@ -3,11 +3,6 @@ package net.osmand.plus.rastermaps;
 import android.app.Activity;
 import android.content.DialogInterface;
 import android.os.AsyncTask;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.widget.AppCompatCheckBox;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.widget.AdapterView;
@@ -16,7 +11,14 @@ import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.AppCompatCheckBox;
+import androidx.core.content.ContextCompat;
 
 import net.osmand.AndroidUtils;
 import net.osmand.IndexConstants;
@@ -35,6 +37,7 @@ import net.osmand.plus.OsmandSettings;
 import net.osmand.plus.OsmandSettings.CommonPreference;
 import net.osmand.plus.OsmandSettings.LayerTransparencySeekbarMode;
 import net.osmand.plus.R;
+import net.osmand.plus.SQLiteTileSource;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.Version;
 import net.osmand.plus.activities.DownloadTilesDialog;
@@ -42,7 +45,6 @@ import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.activities.MapActivityLayers;
 import net.osmand.plus.dashboard.DashboardOnMap.DashboardType;
 import net.osmand.plus.dialogs.RasterMapMenu;
-import net.osmand.plus.settings.BaseSettingsFragment;
 import net.osmand.plus.views.MapTileLayer;
 import net.osmand.plus.views.OsmandMapTileView;
 import net.osmand.util.Algorithms;
@@ -351,7 +353,7 @@ public class OsmandRasterMapsPlugin extends OsmandPlugin {
 				.setDescription(overlayMapDescr)
 				.setSelected(hasOverlayDescription)
 				.setColor(hasOverlayDescription ? R.color.osmand_orange : ContextMenuItem.INVALID_ID)
-				.setIcon(R.drawable.ic_layer_top_dark)
+				.setIcon(R.drawable.ic_layer_top)
 				.setSecondaryIcon(R.drawable.ic_action_additional_option)
 				.setListener(listener)
 				.setPosition(14)
@@ -367,7 +369,7 @@ public class OsmandRasterMapsPlugin extends OsmandPlugin {
 				.setDescription(underlayMapDescr)
 				.setSelected(hasUnderlayDescription)
 				.setColor(hasUnderlayDescription ? R.color.osmand_orange : ContextMenuItem.INVALID_ID)
-				.setIcon(R.drawable.ic_layer_bottom_dark)
+				.setIcon(R.drawable.ic_layer_bottom)
 				.setSecondaryIcon(R.drawable.ic_action_additional_option)
 				.setListener(listener)
 				.setPosition(15)
@@ -478,10 +480,11 @@ public class OsmandRasterMapsPlugin extends OsmandPlugin {
 		t.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 	}
 
-	public static void defineNewEditLayer(final Activity activity, final ResultMatcher<TileSourceTemplate> resultMatcher) {
+	public static void defineNewEditLayer(final Activity activity, final ResultMatcher<TileSourceTemplate> resultMatcher, final String editedLayerName) {
 		final OsmandApplication app = (OsmandApplication) activity.getApplication();
 		final OsmandSettings settings = app.getSettings();
-		final Map<String, String> entriesMap = settings.getTileSourceEntries(false);
+		final Map<String, String> entriesMap = settings.getTileSourceEntries(true);
+		final SQLiteTileSource[] sqLiteTileSource = new SQLiteTileSource[1];
 		boolean nightMode = isNightMode(activity, app);
 		final int dp8 = AndroidUtils.dpToPx(app, 8f);
 		int textColorPrimary = ContextCompat.getColor(app, nightMode ? R.color.text_color_primary_dark : R.color.text_color_primary_light);
@@ -491,7 +494,10 @@ public class OsmandRasterMapsPlugin extends OsmandPlugin {
 		AlertDialog.Builder bld = new AlertDialog.Builder(new ContextThemeWrapper(activity, getThemeRes(activity, app)));
 		View view = UiUtilities.getInflater(activity, isNightMode(activity, app)).inflate(R.layout.editing_tile_source, null);
 		final EditText name = (EditText) view.findViewById(R.id.Name);
+		name.setFocusable(false);
+		name.setFocusableInTouchMode(false);
 		final Spinner existing = (Spinner) view.findViewById(R.id.TileSourceSpinner);
+		final TextView existingHint = (TextView) view.findViewById(R.id.TileSourceHint);
 		final EditText urlToLoad = (EditText) view.findViewById(R.id.URLToLoad);
 		final EditText minZoom = (EditText) view.findViewById(R.id.MinZoom);
 		final EditText maxZoom = (EditText) view.findViewById(R.id.MaxZoom);
@@ -511,6 +517,32 @@ public class OsmandRasterMapsPlugin extends OsmandPlugin {
 		);
 		adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		existing.setAdapter(adapter);
+		TileSourceTemplate template;
+		if (editedLayerName != null) {
+			if (!editedLayerName.endsWith(IndexConstants.SQLITE_EXT)) {
+				File f = ((OsmandApplication) activity.getApplication()).getAppPath(
+						IndexConstants.TILES_INDEX_DIR + editedLayerName);
+				template = TileSourceManager.createTileSourceTemplate(f);
+			} else {
+				List<TileSourceTemplate> knownTemplates = TileSourceManager.getKnownSourceTemplates();
+				File tPath = app.getAppPath(IndexConstants.TILES_INDEX_DIR);
+				File dir = new File(tPath, editedLayerName);
+				sqLiteTileSource[0] = new SQLiteTileSource(app, dir, knownTemplates);
+				sqLiteTileSource[0].couldBeDownloadedFromInternet();
+				template = new TileSourceManager.TileSourceTemplate(sqLiteTileSource[0].getName(),
+						sqLiteTileSource[0].getUrlTemplate(), "png", sqLiteTileSource[0].getMaximumZoomSupported(),
+						sqLiteTileSource[0].getMinimumZoomSupported(), sqLiteTileSource[0].getTileSize(),
+						sqLiteTileSource[0].getBitDensity(), 32000);
+				template.setExpirationTimeMinutes(sqLiteTileSource[0].getExpirationTimeMinutes());
+				template.setEllipticYTile(sqLiteTileSource[0].isEllipticYTile());
+			}
+			if (template != null) {
+				result[0] = template.copy();
+				updateTileSourceEditView(result[0], name, urlToLoad, minZoom, maxZoom, expire, elliptic);
+			}
+			existingHint.setVisibility(View.GONE);
+			existing.setVisibility(View.GONE);
+		}
 		existing.setSelection(0);
 		existing.setOnItemSelectedListener(new OnItemSelectedListener() {
 
@@ -546,11 +578,15 @@ public class OsmandRasterMapsPlugin extends OsmandPlugin {
 					r.setEllipticYTile(elliptic.isChecked());
 					r.setUrlToLoad(urlToLoad.getText().toString().equals("") ? null : urlToLoad.getText().toString().replace("{$x}", "{1}")
 							.replace("{$y}", "{2}").replace("{$z}", "{0}"));
-					if (r.getName().length() > 0) {
-						if (settings.installTileSource(r)) {
-							Toast.makeText(activity, activity.getString(R.string.edit_tilesource_successfully, r.getName()),
-									Toast.LENGTH_SHORT).show();
-							resultMatcher.publish(r);
+					if (sqLiteTileSource[0] != null) {
+						sqLiteTileSource[0].updateFromTileSourceTemplate(r);
+					} else {
+						if (r.getName().length() > 0) {
+							if (settings.installTileSource(r)) {
+								Toast.makeText(activity, activity.getString(R.string.edit_tilesource_successfully, r.getName()),
+										Toast.LENGTH_SHORT).show();
+								resultMatcher.publish(r);
+							}
 						}
 					}
 				} catch (RuntimeException e) {

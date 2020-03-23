@@ -38,6 +38,7 @@ import net.osmand.plus.activities.SettingsBaseActivity;
 
 import java.util.Map;
 
+import static net.osmand.plus.OsmandSettings.DAILY_DIRECTORY;
 import static net.osmand.plus.OsmandSettings.MONTHLY_DIRECTORY;
 import static net.osmand.plus.OsmandSettings.REC_DIRECTORY;
 
@@ -156,7 +157,7 @@ public class SettingsMonitoringActivity extends SettingsBaseActivity {
 		cat.addPreference(createCheckBoxPreference(settings.SAVE_HEADING_TO_GPX, R.string.save_heading,
 				R.string.save_heading_descr));
 
-		Integer[] intValues = new Integer[]{REC_DIRECTORY, MONTHLY_DIRECTORY};
+		Integer[] intValues = new Integer[]{REC_DIRECTORY, MONTHLY_DIRECTORY, DAILY_DIRECTORY};
 		names = new String[intValues.length];
 		names[0] = getString(R.string.store_tracks_in_rec_directory);
 		names[1] = getString(R.string.store_tracks_in_monthly_directories);

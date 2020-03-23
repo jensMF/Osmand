@@ -1012,11 +1012,11 @@ public class ImportHelper {
 			importDir.mkdirs();
 			if (importDir.exists() && importDir.isDirectory() && importDir.canWrite()) {
 				final WptPt pt = gpxFile.findPointToShow();
-				Integer track_storage_directory = app.getSettings().TRACK_STORAGE_DIRECTORY.get();
-				if (track_storage_directory != OsmandSettings.REC_DIRECTORY) {
+				OsmandSettings.RecordingLocation track_storage_directory = app.getSettings().TRACK_STORAGE_DIRECTORY.get();
+				if (track_storage_directory != OsmandSettings.RecordingLocation.REC_DIRECTORY) {
 					SimpleDateFormat monthDirFormat = new SimpleDateFormat("yyyy-MM");
 					String dateDirName = monthDirFormat.format(new Date(pt.time));
-					if (track_storage_directory == OsmandSettings.DAILY_DIRECTORY) {
+					if (track_storage_directory == OsmandSettings.RecordingLocation.DAILY_DIRECTORY) {
 						SimpleDateFormat dayDirFormat = new SimpleDateFormat("yyyy-MM-dd");
 						dateDirName = dateDirName + File.separator + dayDirFormat.format(new Date(pt.time));
 					}

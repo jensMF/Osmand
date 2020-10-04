@@ -1116,6 +1116,7 @@ public class OsmandAidlApi {
 
 	@SuppressLint("StaticFieldLeak")
 	private void finishGpxImport(boolean destinationExists, File destination, String color, boolean show) {
+		LOG.error("finish GPX import called");
 		final int col = ConfigureMapMenu.GpxAppearanceAdapter.parseTrackColor(
 				app.getRendererRegistry().getCurrentSelectedRenderer(), color);
 		if (!destinationExists) {
@@ -1131,6 +1132,7 @@ public class OsmandAidlApi {
 		final GpxSelectionHelper helper = app.getSelectedGpxHelper();
 		final SelectedGpxFile selectedGpx = helper.getSelectedFileByName(destination.getName());
 		if (selectedGpx != null) {
+			LOG.debug(selectedGpx.getGpxFile().path + " is not Null");
 			if (show) {
 				new AsyncTask<File, Void, GPXFile>() {
 
@@ -1156,6 +1158,7 @@ public class OsmandAidlApi {
 				refreshMap();
 			}
 		} else if (show) {
+			LOG.error("selectedGpx is  Null");
 			new AsyncTask<File, Void, GPXFile>() {
 
 				@Override

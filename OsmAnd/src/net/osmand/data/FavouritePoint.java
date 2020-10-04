@@ -17,8 +17,8 @@ import java.io.Serializable;
 public class FavouritePoint implements Serializable, LocationPoint {
 	private static final long serialVersionUID = 729654300829771466L;
 
-	private static final String HIDDEN = "hidden";
-	private static final String ADDRESS_EXTENSION = "address";
+	private static final String HIDDEN = "osmand:hidden";
+	private static final String ADDRESS_EXTENSION = "osmand:address";
 
 	protected String name = "";
 	protected String description;

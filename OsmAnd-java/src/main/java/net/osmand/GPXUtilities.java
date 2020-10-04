@@ -43,7 +43,7 @@ import java.util.TimeZone;
 
 public class GPXUtilities {
 	public final static Log log = PlatformUtil.getLog(GPXUtilities.class);
-	private static final String ICON_NAME_EXTENSION = "icon";
+	private static final String ICON_NAME_EXTENSION = "osmand:icon";
 	private static final String DEFAULT_ICON_NAME = "special_star";
 
 	private final static String GPX_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss'Z'"; //$NON-NLS-1$
@@ -140,7 +140,7 @@ public class GPXUtilities {
 		}
 
 		public void setColor(int color) {
-			getExtensionsToWrite().put("color", Algorithms.colorToString(color));
+			getExtensionsToWrite().put("osmand:color", Algorithms.colorToString(color));
 		}
 
 		public void removeColor() {
@@ -967,13 +967,13 @@ public class GPXUtilities {
 		public GPXFile(String title, String lang, String description) {
 			this.metadata = new Metadata();
 			if(description != null) {
-				metadata.getExtensionsToWrite().put("desc", description);
+				metadata.getExtensionsToWrite().put("osmand:desc", description);
 			}
 			if(lang != null) {
-				metadata.getExtensionsToWrite().put("article_lang", lang);
+				metadata.getExtensionsToWrite().put("osmand:article_lang", lang);
 			}
 			if(title != null) {
-				metadata.getExtensionsToWrite().put("article_title", title);
+				metadata.getExtensionsToWrite().put("osmand:article_title", title);
 			}
 		}
 
@@ -1507,6 +1507,7 @@ public class GPXUtilities {
 			serializer.attribute(null, "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
 			serializer.attribute(null, "xsi:schemaLocation",
 					"http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd");
+			serializer.attribute(null, "xmlns:osmand", "https://osmand.net");
 
 			String trackName = file.metadata != null ? file.metadata.name : getFilename(file.path);
 			serializer.startTag(null, "metadata");
@@ -1655,10 +1656,10 @@ public class GPXUtilities {
 			writeNotNullText(serializer, "hdop", decimalFormat.format(p.hdop));
 		}
 		if (p.speed > 0) {
-			p.getExtensionsToWrite().put("speed", decimalFormat.format(p.speed));
+			p.getExtensionsToWrite().put("osmand:speed", decimalFormat.format(p.speed));
 		}
 		if (!Float.isNaN(p.heading)) {
-			p.getExtensionsToWrite().put("heading", String.valueOf(Math.round(p.heading)));
+			p.getExtensionsToWrite().put("osmand:heading", String.valueOf(Math.round(p.heading)));
 		}
 		writeExtensions(serializer, p);
 	}
@@ -1851,7 +1852,7 @@ public class GPXUtilities {
 								case "routepointextension":
 									routePointExtension = true;
 									if (parse instanceof WptPt) {
-										parse.getExtensionsToWrite().put("offset", routeTrackSegment.points.size() + "");
+										parse.getExtensionsToWrite().put("osmand:offset", routeTrackSegment.points.size() + "");
 									}
 									break;
 
@@ -1861,7 +1862,7 @@ public class GPXUtilities {
 										for (Entry<String, String> entry : values.entrySet()) {
 											String t = entry.getKey().toLowerCase();
 											String value = entry.getValue();
-											parse.getExtensionsToWrite().put(t, value);
+											parse.getExtensionsToWrite().put("osmand:" + t, value);
 											if (tag.equals("speed") && parse instanceof WptPt) {
 												try {
 													((WptPt) parse).speed = Float.parseFloat(value);
@@ -2025,7 +2026,7 @@ public class GPXUtilities {
 								try {
 									String value = readText(parser, "speed");
 									((WptPt) parse).speed = Float.parseFloat(value);
-									parse.getExtensionsToWrite().put("speed", value);
+									parse.getExtensionsToWrite().put("osmand:speed", value);
 								} catch (NumberFormatException e) {
 								}
 							} else if (tag.equals("link")) {

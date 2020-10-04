@@ -496,6 +496,7 @@ public class OsmandAidlService extends Service implements AidlCallbackListener {
 
 		@Override
 		public boolean importGpx(ImportGpxParams params) {
+			LOG.error("importGpx called");
 			try {
 				if (params != null && !Algorithms.isEmpty(params.getDestinationPath())) {
 					OsmandAidlApi api = getApi("importGpx");
@@ -504,6 +505,7 @@ public class OsmandAidlService extends Service implements AidlCallbackListener {
 							return api.importGpxFromFile(params.getGpxFile(), params.getDestinationPath(),
 									params.getColor(), params.isShow());
 						} else if (params.getGpxUri() != null) {
+							LOG.error("importGpxFromUri should be called next");
 							return api.importGpxFromUri(params.getGpxUri(), params.getDestinationPath(),
 									params.getColor(), params.isShow());
 						} else if (params.getSourceRawData() != null) {
